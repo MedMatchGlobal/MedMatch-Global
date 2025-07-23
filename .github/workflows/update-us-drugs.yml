@@ -3,7 +3,7 @@ name: Weekly US Drug List Update
 on:
   schedule:
     - cron: '0 1 * * 0' # Every Sunday at 01:00 UTC
-  workflow_dispatch:     # Allow manual triggering
+  workflow_dispatch:   # ✅ This enables the "Run workflow" button
 
 jobs:
   update-us-drugs:
