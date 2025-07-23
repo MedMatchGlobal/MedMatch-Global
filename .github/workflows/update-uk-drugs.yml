@@ -33,13 +33,12 @@ jobs:
 
           if git diff --cached --quiet; then
             echo "✅ No changes to commit."
+            exit 0
           else
             echo "📦 Committing updated uk-drugs.json..."
             git commit -m "🔄 Weekly UK drug list update"
             git push
           fi
-        shell: bash
-        continue-on-error: true
 
 
 
