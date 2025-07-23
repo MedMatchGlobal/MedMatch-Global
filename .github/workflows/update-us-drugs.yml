@@ -21,8 +21,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run US drug extraction script
-        run: node scripts/extract-us-drugs.js
+- name: Run US drug extraction script
+  run: node scripts/extract-us-drugs.js
+  working-directory: ${{ github.workspace }}
 
       - name: Commit updated us-drugs.json
         run: |
