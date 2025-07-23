@@ -38,6 +38,8 @@ jobs:
             git commit -m "🔄 Weekly UK drug list update"
             git push
           fi
+        shell: bash
+        continue-on-error: true
 
           # Ensure success status regardless of commit
           exit 0
