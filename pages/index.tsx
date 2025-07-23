@@ -1,115 +1,213 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { useEffect, useState } from "react";
 
 export default function Home() {
+  const [countries, setCountries] = useState<string[]>([]);
+  const [ukDrugs, setUkDrugs] = useState<string[]>([]);
+
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [selectedDrug, setSelectedDrug] = useState("");
+  const [filteredDrugs, setFilteredDrugs] = useState<string[]>([]);
+  const [showDrugDropdown, setShowDrugDropdown] = useState(false);
+
+  const [selectedDosage, setSelectedDosage] = useState("");
+  const [searchCountry, setSearchCountry] = useState("");
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showNotice, setShowNotice] = useState(false);
+
+  const countryWithDatabase = ["United Kingdom"];
+
+  useEffect(() => {
+    fetch("/api/options", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "countries" }),
+    })
+      .then((res) => res.json())
+      .then((data) => setCountries(data.options || []))
+      .catch((err) => console.error("Failed to load countries:", err));
+  }, []);
+
+  useEffect(() => {
+    fetch("/uk-drugs.json")
+      .then((res) => res.json())
+      .then((data) => {
+        setUkDrugs(data);
+        setFilteredDrugs(data);
+      })
+      .catch((err) => console.error("Failed to load UK drugs:", err));
+  }, []);
+
+  const handleCountryChange = (value: string) => {
+    setSelectedCountry(value);
+    setSelectedDrug("");
+    setSelectedDosage("");
+    setShowNotice(!countryWithDatabase.includes(value));
+  };
+
+  const handleDrugInput = (value: string) => {
+    setSelectedDrug(value);
+    setShowDrugDropdown(true);
+    const filtered = ukDrugs.filter((drug) =>
+      drug.toLowerCase().includes(value.toLowerCase())
+    );
+    setFilteredDrugs(filtered);
+  };
+
+  const handleDrugSelect = (value: string) => {
+    setSelectedDrug(value);
+    setShowDrugDropdown(false);
+  };
+
+  const handleSearch = async () => {
+    setLoading(true);
+    setResult("Searching...");
+
+    const query = `Find the equivalent of the drug ${selectedDrug} sold in ${selectedCountry}, in ${searchCountry}.`;
+
+    try {
+      const response = await fetch("/api/ai-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+
+      const data = await response.json();
+      setResult(data.result || "No result found.");
+    } catch (err) {
+      console.error(err);
+      setResult("An error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20`}
-    >
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              pages/index.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+    <main style={{ maxWidth: "600px", margin: "auto", padding: "2rem" }}>
+      <h1 style={{ textAlign: "center", color: "#0b74de", fontSize: "2rem" }}>
+        MedMatch-Global
+      </h1>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {/* Source Country Dropdown */}
+        <select
+          value={selectedCountry}
+          onChange={(e) => handleCountryChange(e.target.value)}
+        >
+          <option value="">Select Country</option>
+          {countries.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+
+        {/* Notice for countries without database */}
+        {showNotice && (
+          <div style={{ color: "#d9534f", fontSize: "0.95rem" }}>
+            ⚠️ No full drug list available for {selectedCountry}. Please enter the drug name manually.
+          </div>
+        )}
+
+        {/* Drug Input */}
+        {selectedCountry === "United Kingdom" ? (
+          <div style={{ position: "relative" }}>
+            <input
+              type="text"
+              placeholder="Start typing drug name..."
+              value={selectedDrug}
+              onChange={(e) => handleDrugInput(e.target.value)}
+              onFocus={() => setShowDrugDropdown(true)}
+              style={{ width: "100%", padding: "0.5rem" }}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+            {showDrugDropdown && filteredDrugs.length > 0 && (
+              <ul
+                style={{
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                  maxHeight: "150px",
+                  overflowY: "auto",
+                  position: "absolute",
+                  zIndex: 1000,
+                  width: "100%",
+                  border: "1px solid #ccc",
+                  backgroundColor: "white",
+                }}
+              >
+                {filteredDrugs.slice(0, 100).map((drug, idx) => (
+                  <li
+                    key={idx}
+                    onClick={() => handleDrugSelect(drug)}
+                    style={{
+                      padding: "0.5rem",
+                      borderBottom: "1px solid #eee",
+                      cursor: "pointer",
+                      whiteSpace: "normal",
+                      wordWrap: "break-word",
+                    }}
+                  >
+                    {drug}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <input
+            type="text"
+            placeholder="Enter Drug Name"
+            value={selectedDrug}
+            onChange={(e) => setSelectedDrug(e.target.value)}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+        )}
+
+        {/* Optional Dosage */}
+        <input
+          type="text"
+          placeholder="Enter Dosage (optional)"
+          value={selectedDosage}
+          onChange={(e) => setSelectedDosage(e.target.value)}
+        />
+
+        {/* Destination Country Dropdown */}
+        <select
+          value={searchCountry}
+          onChange={(e) => setSearchCountry(e.target.value)}
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          <option value="">Country to search</option>
+          {countries.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+
+        {/* Search Button */}
+        <button
+          onClick={handleSearch}
+          disabled={loading || !selectedDrug || !searchCountry}
+          style={{
+            padding: "0.75rem",
+            backgroundColor: "#0b74de",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+          }}
         >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          {loading ? "Searching..." : "Search Equivalent Drug"}
+        </button>
+
+        {/* Result */}
+        <textarea
+          readOnly
+          value={result}
+          placeholder="Result will appear here..."
+          rows={6}
+          style={{ marginTop: "1rem", width: "100%" }}
+        />
+      </div>
+    </main>
   );
 }
