@@ -5,6 +5,7 @@ on:
     - cron: '0 1 * * 0' # Every Sunday at 01:00 UTC
   workflow_dispatch:   # ✅ This enables the "Run workflow" button
 
+
 jobs:
   update-us-drugs:
     runs-on: ubuntu-latest
