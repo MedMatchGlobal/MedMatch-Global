@@ -2,12 +2,13 @@ name: Weekly UK Drug List Update
 
 on:
   schedule:
-    - cron: '0 0 * * 0' # Every Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'  # Every Sunday at 00:00 UTC
   workflow_dispatch:
 
 jobs:
   update-uk-drugs:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -30,7 +31,6 @@ jobs:
 
           git add public/data/uk-drugs.json
 
-          # Check if anything has changed
           if git diff --cached --quiet; then
             echo "✅ No changes to commit."
           else
@@ -38,6 +38,10 @@ jobs:
             git commit -m "🔄 Weekly UK drug list update"
             git push
           fi
+
+          # Ensure success status regardless of commit
+          exit 0
+
 
 
 
