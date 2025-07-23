@@ -24,21 +24,23 @@ jobs:
       - name: Run drug extraction script
         run: node scripts/extract-uk-drugs.js
 
-    - name: Commit updated uk-drugs.json
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+- name: Commit updated uk-drugs.json
+  run: |
+    git config user.name "github-actions[bot]"
+    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-        # Check if file content changed compared to last commit
-        if git diff --quiet HEAD public/data/uk-drugs.json; then
-          echo "✅ No changes to commit. Skipping commit step."
-        else
-          git add public/data/uk-drugs.json
-          git commit -m "🔄 Weekly UK drug list update"
-          git push
-        fi
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Check if file content changed compared to last commit
+    if git diff --quiet HEAD public/data/uk-drugs.json; then
+      echo "✅ No changes to commit. Skipping commit step."
+      exit 0
+    else
+      git add public/data/uk-drugs.json
+      git commit -m "🔄 Weekly UK drug list update"
+      git push
+    fi
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
