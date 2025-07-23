@@ -24,22 +24,25 @@ jobs:
       - name: Run drug extraction script
         run: node scripts/extract-uk-drugs.js
 
+- name: Check if uk-drugs.json has changed
+  id: check_changes
+  run: |
+    git fetch origin main
+    if git diff --quiet origin/main -- public/data/uk-drugs.json; then
+      echo "changed=false" >> $GITHUB_OUTPUT
+    else
+      echo "changed=true" >> $GITHUB_OUTPUT
+    fi
+
 - name: Commit updated uk-drugs.json
+  if: steps.check_changes.outputs.changed == 'true'
   run: |
     git config user.name "github-actions[bot]"
     git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    git add public/data/uk-drugs.json
+    git commit -m "🔄 Weekly UK drug list update"
+    git push
 
-    # Check if file content changed compared to last commit
-    if git diff --quiet HEAD public/data/uk-drugs.json; then
-      echo "✅ No changes to commit. Skipping commit step."
-      exit 0
-    else
-      git add public/data/uk-drugs.json
-      git commit -m "🔄 Weekly UK drug list update"
-      git push
-    fi
-  env:
-    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
 
