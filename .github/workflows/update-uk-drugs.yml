@@ -3,7 +3,7 @@ name: Weekly UK Drug List Update
 on:
   schedule:
     - cron: '0 0 * * 0'  # Every Sunday at 00:00 UTC
-  workflow_dispatch:     # Manual trigger
+  workflow_dispatch:
 
 jobs:
   update-uk-drugs:
@@ -24,18 +24,21 @@ jobs:
       - name: Run drug extraction script
         run: node scripts/extract-uk-drugs.js
 
-      - name: Commit updated uk-drugs.json if it changed
+      - name: Commit updated uk-drugs.json if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet origin/main -- public/data/uk-drugs.json; then
-            echo "No changes to commit."
+          git add public/data/uk-drugs.json
+
+          if git diff --cached --quiet; then
+            echo "✅ No changes to commit."
           else
-            git add public/data/uk-drugs.json
+            echo "📦 Committing updated uk-drugs.json..."
             git commit -m "🔄 Weekly UK drug list update"
             git push
           fi
+
 
 
 
