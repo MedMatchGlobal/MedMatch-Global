@@ -2,9 +2,8 @@ name: Weekly US Drug List Update
 
 on:
   schedule:
-    - cron: '0 1 * * 0' # Every Sunday at 01:00 UTC
-  workflow_dispatch:   # ✅ This enables the "Run workflow" button
-
+    - cron: '0 1 * * 0'  # Every Sunday at 01:00 UTC
+  workflow_dispatch:       # Enables the "Run workflow" button in GitHub UI
 
 jobs:
   update-us-drugs:
@@ -22,9 +21,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-- name: Run US drug extraction script
-  run: node scripts/extract-us-drugs.js
-  working-directory: ${{ github.workspace }}
+      - name: Run US drug extraction script
+        run: node scripts/extract-us-drugs.js
+        working-directory: ${{ github.workspace }}
 
       - name: Commit updated us-drugs.json
         run: |
@@ -35,7 +34,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "✅ No changes to commit"
           else
-            git commit -m "🔄 Weekly US drug list update"
+            git commit -m "💊 Weekly US drug list update"
             git push
           fi
         env:
