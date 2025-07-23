@@ -29,15 +29,16 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-        # Check if the file changed
-        if git diff --quiet public/data/uk-drugs.json; then
-          echo "✅ No changes to UK drug list. Skipping commit."
+        # Check if file content changed compared to last commit
+        if git diff --quiet HEAD public/data/uk-drugs.json; then
+          echo "✅ No changes to commit. Skipping commit step."
         else
           git add public/data/uk-drugs.json
-          git commit -m "🔄 Weekly UK drug list update" || echo "⚠️ Nothing to commit."
-          git push || echo "⚠️ Nothing to push."
+          git commit -m "🔄 Weekly UK drug list update"
+          git push
         fi
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
