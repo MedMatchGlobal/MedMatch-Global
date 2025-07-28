@@ -21,8 +21,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run drug extraction script
+      - name: Run drug extraction + DB insert
         run: node scripts/extract-uk-drugs.js
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Check for changes
         id: check_changes
@@ -45,6 +47,7 @@ jobs:
         run: |
           git commit -m "🔄 Weekly UK drug list update"
           git push
+
 
 
 

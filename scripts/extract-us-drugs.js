@@ -1,62 +1,46 @@
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
+const { PrismaClient } = require("@prisma/client");
 
-const OUTPUT_PATH = path.join(__dirname, '../public/data/us-drugs.json');
-const BASE_URL = 'https://api.fda.gov/drug/ndc.json';
-const LIMIT = 1000;
-const MAX_SKIP = 25000;
+const prisma = new PrismaClient();
 
-const statePath = path.join(__dirname, '../.us-drug-fetch-state.json');
-const today = new Date().toISOString().split('T')[0];
-
-let lastDate = '2000-01-01';
-if (fs.existsSync(statePath)) {
-  const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
-  lastDate = state.lastDate || lastDate;
-}
-
-async function fetchAllDrugs() {
-  let allDrugs = [];
-  let skip = 0;
-  let keepFetching = true;
-
-  while (keepFetching && skip <= MAX_SKIP) {
-    const url = `${BASE_URL}?search=listing_expiration_date:[${lastDate}+TO+${today}]&limit=${LIMIT}&skip=${skip}`;
-
-    console.log(`🔄 Fetching records since ${lastDate}... skip=${skip}`);
-    try {
-      const res = await axios.get(url);
-      const results = res.data.results;
-      if (!results || results.length === 0) {
-        keepFetching = false;
-      } else {
-        allDrugs.push(...results);
-        skip += LIMIT;
-      }
-    } catch (err) {
-      console.error(`❌ Error at skip=${skip}: ${err.response?.data?.error?.message || err.message}`);
-      keepFetching = false;
-    }
-  }
-
-  return allDrugs;
-}
-
-(async () => {
+const extractDrugs = async () => {
   try {
-    const drugs = await fetchAllDrugs();
+    // Example: load static JSON or fetch from an API (replace with real logic)
+    const sourcePath = path.join(__dirname, "../data/fda-ndc.json");
+    const raw = fs.readFileSync(sourcePath, "utf8");
+    const drugs = JSON.parse(raw);
 
-    if (drugs.length > 0) {
-      const names = [...new Set(drugs.map(d => d.brand_name).filter(Boolean))].sort();
-      fs.writeFileSync(OUTPUT_PATH, JSON.stringify(names, null, 2));
-      console.log(`✅ Extracted ${names.length} US drug records to ${OUTPUT_PATH}`);
+    const output = drugs
+      .filter(d => d.name && d.ndc)
+      .map(d => ({
+        name: d.name,
+        ndcCode: d.ndc
+      }));
 
-      fs.writeFileSync(statePath, JSON.stringify({ lastDate: today }, null, 2));
-    } else {
-      console.log('✅ No new US drug records found since last update.');
+    // Save locally
+    const outPath = path.join(__dirname, "../public/data/us-drugs.json");
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, JSON.stringify(output, null, 2), "utf8");
+
+    console.log(`✅ Saved ${output.length} US drugs to us-drugs.json`);
+
+    // Insert into Planetscale
+    for (const drug of output) {
+      await prisma.drugUS.upsert({
+        where: { ndcCode: drug.ndcCode },
+        update: { name: drug.name },
+        create: { name: drug.name, ndcCode: drug.ndcCode },
+      });
     }
+
+    console.log(`✅ Inserted ${output.length} US drugs into Planetscale`);
   } catch (err) {
-    console.error(`❌ Error fetching US drugs: ${err.message}`);
+    console.error("❌ Error:", err);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
   }
-})();
+};
+
+extractDrugs();

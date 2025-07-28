@@ -3,19 +3,18 @@ import { useEffect, useState } from "react";
 export default function Home() {
   const [countries, setCountries] = useState<string[]>([]);
   const [ukDrugs, setUkDrugs] = useState<string[]>([]);
-
+  const [usDrugs, setUsDrugs] = useState<string[]>([]);
   const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedDrug, setSelectedDrug] = useState("");
   const [filteredDrugs, setFilteredDrugs] = useState<string[]>([]);
   const [showDrugDropdown, setShowDrugDropdown] = useState(false);
-
   const [selectedDosage, setSelectedDosage] = useState("");
   const [searchCountry, setSearchCountry] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [showNotice, setShowNotice] = useState(false);
 
-  const countryWithDatabase = ["United Kingdom"];
+  const countryWithDatabase = ["United Kingdom", "United States"];
 
   useEffect(() => {
     fetch("/api/options", {
@@ -31,11 +30,13 @@ export default function Home() {
   useEffect(() => {
     fetch("/uk-drugs.json")
       .then((res) => res.json())
-      .then((data) => {
-        setUkDrugs(data);
-        setFilteredDrugs(data);
-      })
+      .then((data) => setUkDrugs(data))
       .catch((err) => console.error("Failed to load UK drugs:", err));
+
+    fetch("/us-drugs.json")
+      .then((res) => res.json())
+      .then((data) => setUsDrugs(data.map((d: any) => d.generic_name)))
+      .catch((err) => console.error("Failed to load US drugs:", err));
   }, []);
 
   const handleCountryChange = (value: string) => {
@@ -43,12 +44,21 @@ export default function Home() {
     setSelectedDrug("");
     setSelectedDosage("");
     setShowNotice(!countryWithDatabase.includes(value));
+
+    if (value === "United Kingdom") {
+      setFilteredDrugs(ukDrugs);
+    } else if (value === "United States") {
+      setFilteredDrugs(usDrugs);
+    } else {
+      setFilteredDrugs([]);
+    }
   };
 
   const handleDrugInput = (value: string) => {
     setSelectedDrug(value);
     setShowDrugDropdown(true);
-    const filtered = ukDrugs.filter((drug) =>
+    const source = selectedCountry === "United Kingdom" ? ukDrugs : usDrugs;
+    const filtered = source.filter((drug) =>
       drug.toLowerCase().includes(value.toLowerCase())
     );
     setFilteredDrugs(filtered);
@@ -84,15 +94,20 @@ export default function Home() {
 
   return (
     <main style={{ maxWidth: "600px", margin: "auto", padding: "2rem" }}>
+      <img
+        src="/logo.png"
+        alt="MedMatch Global Logo"
+        style={{ maxWidth: "180px", display: "block", margin: "0 auto 1rem" }}
+      />
       <h1 style={{ textAlign: "center", color: "#0b74de", fontSize: "2rem" }}>
         MedMatch-Global
       </h1>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        {/* Source Country Dropdown */}
         <select
           value={selectedCountry}
           onChange={(e) => handleCountryChange(e.target.value)}
+          style={{ width: "100%", padding: "0.5rem" }}
         >
           <option value="">Select Country</option>
           {countries.map((c) => (
@@ -102,15 +117,14 @@ export default function Home() {
           ))}
         </select>
 
-        {/* Notice for countries without database */}
         {showNotice && (
           <div style={{ color: "#d9534f", fontSize: "0.95rem" }}>
-            ⚠️ No full drug list available for {selectedCountry}. Please enter the drug name manually.
+            ⚠️ No full drug list available for {selectedCountry}. Please enter
+            the drug name manually.
           </div>
         )}
 
-        {/* Drug Input */}
-        {selectedCountry === "United Kingdom" ? (
+        {countryWithDatabase.includes(selectedCountry) ? (
           <div style={{ position: "relative" }}>
             <input
               type="text"
@@ -159,21 +173,22 @@ export default function Home() {
             placeholder="Enter Drug Name"
             value={selectedDrug}
             onChange={(e) => setSelectedDrug(e.target.value)}
+            style={{ width: "100%", padding: "0.5rem" }}
           />
         )}
 
-        {/* Optional Dosage */}
         <input
           type="text"
           placeholder="Enter Dosage (optional)"
           value={selectedDosage}
           onChange={(e) => setSelectedDosage(e.target.value)}
+          style={{ width: "100%", padding: "0.5rem" }}
         />
 
-        {/* Destination Country Dropdown */}
         <select
           value={searchCountry}
           onChange={(e) => setSearchCountry(e.target.value)}
+          style={{ width: "100%", padding: "0.5rem" }}
         >
           <option value="">Country to search</option>
           {countries.map((c) => (
@@ -183,7 +198,6 @@ export default function Home() {
           ))}
         </select>
 
-        {/* Search Button */}
         <button
           onClick={handleSearch}
           disabled={loading || !selectedDrug || !searchCountry}
@@ -199,7 +213,6 @@ export default function Home() {
           {loading ? "Searching..." : "Search Equivalent Drug"}
         </button>
 
-        {/* Result */}
         <textarea
           readOnly
           value={result}

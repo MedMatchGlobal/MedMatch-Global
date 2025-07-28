@@ -1,6 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 const xml2js = require("xml2js");
+const { PrismaClient } = require("@prisma/client");
+
+const prisma = new PrismaClient();
 
 const extractDrugs = async () => {
   try {
@@ -12,20 +15,42 @@ const extractDrugs = async () => {
 
     const vmpList = result.VIRTUAL_MED_PRODUCTS.VMPS?.[0]?.VMP || [];
 
-    const drugNames = vmpList
-      .map((entry) => entry.NM?.[0])
+    const drugObjects = vmpList
+      .map((entry) => {
+        const name = entry.NM?.[0];
+        const code = entry.VMPID?.[0]; // dm+d code
+        return name && code ? { name, dmDCode: code } : null;
+      })
       .filter(Boolean);
 
-    const uniqueDrugs = [...new Set(drugNames)].sort();
+    const uniqueDrugs = [
+      ...new Map(drugObjects.map((item) => [item.dmDCode, item])).values(),
+    ].sort((a, b) => a.name.localeCompare(b.name));
 
+    // ✅ Save to JSON
     const outputPath = path.join(__dirname, "../public/data/uk-drugs.json");
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, JSON.stringify(uniqueDrugs, null, 2), "utf8");
 
-    console.log(`✅ Extracted ${uniqueDrugs.length} UK drug names to uk-drugs.json`);
+    console.log(`✅ Extracted and saved ${uniqueDrugs.length} UK drugs to JSON`);
+
+    // ✅ Insert into Planetscale using Prisma
+    for (const drug of uniqueDrugs) {
+      await prisma.drugUK.upsert({
+        where: { dmDCode: drug.dmDCode },
+        update: { name: drug.name },
+        create: { dmDCode: drug.dmDCode, name: drug.name },
+      });
+    }
+
+    console.log(`✅ Upserted ${uniqueDrugs.length} drugs into Planetscale DB`);
   } catch (error) {
-    console.error("❌ Error extracting drugs:", error);
+    console.error("❌ Error processing drugs:", error);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
   }
 };
 
 extractDrugs();
+

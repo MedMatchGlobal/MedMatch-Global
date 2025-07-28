@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model DrugUK {
+  id        Int     @id @default(autoincrement())
+  name      String
+  form      String?
+  strength  String?
+  dmDCode   String  @unique
+  createdAt DateTime @default(now())
+}
+
+model DrugUS {
+  id        Int     @id @default(autoincrement())
+  name      String
+  ndcCode   String  @unique
+  form      String?
+  strength  String?
+  createdAt DateTime @default(now())
+}
+
+model SearchLog {
+  id        Int     @id @default(autoincrement())
+  country   String
+  query     String
+  createdAt DateTime @default(now())
+}
