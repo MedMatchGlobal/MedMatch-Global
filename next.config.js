@@ -3,6 +3,8 @@ const nextConfig = {
   experimental: {
     appDir: true,
   },
-}
+  reactStrictMode: true,
+  trailingSlash: true, // optional, helps with some static hosts
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
