@@ -1,6 +1,8 @@
-// app/page.tsx
-'use client';
-
-export default function Home() {
-  return <div>Hello from the deployed Home page!</div>;
+export default function HomePage() {
+  return (
+    <main className="p-8">
+      <h1 className="text-3xl font-bold">Welcome to MedMatch Global</h1>
+      <p>This is the homepage deployed from App Router</p>
+    </main>
+  );
 }
