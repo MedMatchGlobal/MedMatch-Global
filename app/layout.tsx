@@ -1,5 +1,5 @@
 // app/layout.tsx
-import './globals.css'; // optional if you're using global styles
+import '../styles/globals.css'; // correct path from app/layout.tsx
 
 export const metadata = {
   title: 'MedMatch Global',
