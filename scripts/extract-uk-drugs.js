@@ -17,8 +17,8 @@ const extractDrugs = async () => {
 
     const drugObjects = vmpList
       .map((entry) => {
-        const name = entry.NM?.[0];
-        const code = entry.VMPID?.[0]; // dm+d code
+        const name = entry.NN?.[0];
+        const code = entry.VPID?.[0]; // <-- use VPID instead of VMPID
         return name && code ? { name, dmDCode: code } : null;
       })
       .filter(Boolean);
@@ -27,14 +27,14 @@ const extractDrugs = async () => {
       ...new Map(drugObjects.map((item) => [item.dmDCode, item])).values(),
     ].sort((a, b) => a.name.localeCompare(b.name));
 
-    // ✅ Save to JSON
+    // Save to JSON
     const outputPath = path.join(__dirname, "../public/data/uk-drugs.json");
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, JSON.stringify(uniqueDrugs, null, 2), "utf8");
 
     console.log(`✅ Extracted and saved ${uniqueDrugs.length} UK drugs to JSON`);
 
-    // ✅ Insert into Planetscale using Prisma
+    // Insert into Planetscale using Prisma
     for (const drug of uniqueDrugs) {
       await prisma.drugUK.upsert({
         where: { dmDCode: drug.dmDCode },

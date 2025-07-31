@@ -6,37 +6,52 @@ const prisma = new PrismaClient();
 
 const extractDrugs = async () => {
   try {
-    // Example: load static JSON or fetch from an API (replace with real logic)
-    const sourcePath = path.join(__dirname, "../data/fda-ndc.json");
-    const raw = fs.readFileSync(sourcePath, "utf8");
-    const drugs = JSON.parse(raw);
+    const jsonPath = path.join(__dirname, "../data/fda-ndc.json");
+    const raw = fs.readFileSync(jsonPath, "utf8");
+    const data = JSON.parse(raw);
 
-    const output = drugs
-      .filter(d => d.name && d.ndc)
-      .map(d => ({
-        name: d.name,
-        ndcCode: d.ndc
-      }));
+    const drugObjects = data
+      .map((entry) => {
+        const name = entry.brand_name?.trim();
+        const ndcCode = entry.product_ndc?.trim();
+        const form = entry.dosage_form?.trim();
 
-    // Save locally
-    const outPath = path.join(__dirname, "../public/data/us-drugs.json");
-    fs.mkdirSync(path.dirname(outPath), { recursive: true });
-    fs.writeFileSync(outPath, JSON.stringify(output, null, 2), "utf8");
+        return name && ndcCode ? { name, ndcCode, form, strength: null } : null;
+      })
+      .filter(Boolean);
 
-    console.log(`✅ Saved ${output.length} US drugs to us-drugs.json`);
+    const uniqueDrugs = [
+      ...new Map(drugObjects.map((item) => [item.ndcCode, item])).values(),
+    ].sort((a, b) => a.name.localeCompare(b.name));
 
-    // Insert into Planetscale
-    for (const drug of output) {
+    // 💾 Save to JSON
+    const outputPath = path.join(__dirname, "../public/data/us-drugs.json");
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(outputPath, JSON.stringify(uniqueDrugs, null, 2), "utf8");
+
+    console.log(`✅ Extracted and saved ${uniqueDrugs.length} US drugs to JSON`);
+
+    // 🛢️ Insert into PlanetScale DB
+    for (const drug of uniqueDrugs) {
       await prisma.drugUS.upsert({
         where: { ndcCode: drug.ndcCode },
-        update: { name: drug.name },
-        create: { name: drug.name, ndcCode: drug.ndcCode },
+        update: {
+          name: drug.name,
+          form: drug.form,
+          strength: drug.strength,
+        },
+        create: {
+          ndcCode: drug.ndcCode,
+          name: drug.name,
+          form: drug.form,
+          strength: drug.strength,
+        },
       });
     }
 
-    console.log(`✅ Inserted ${output.length} US drugs into Planetscale`);
-  } catch (err) {
-    console.error("❌ Error:", err);
+    console.log(`✅ Upserted ${uniqueDrugs.length} US drugs into PlanetScale DB`);
+  } catch (error) {
+    console.error("❌ Error processing US drugs:", error);
     process.exit(1);
   } finally {
     await prisma.$disconnect();

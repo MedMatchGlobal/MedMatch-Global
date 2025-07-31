@@ -37,7 +37,7 @@ export default function Home() {
 
     fetch("/data/us-drugs.json")
       .then((res) => res.json())
-      .then((data) => setUsDrugs(data.map((d: any) => d.generic_name)))
+      .then((data) => setUsDrugs(data.map((d: any) => d.name)))
       .catch((err) => console.error("Failed to load US drugs:", err));
   }, []);
 
@@ -97,7 +97,7 @@ export default function Home() {
   return (
     <main style={{ maxWidth: "600px", margin: "auto", padding: "2rem" }}>
       <img
-        src="/logo.png"
+        src="/Logo.png"
         alt="MedMatch Global Logo"
         style={{ maxWidth: "600px", display: "block", margin: "0 auto 2rem" }}
       />
@@ -110,16 +110,13 @@ export default function Home() {
         >
           <option value="">Select Country</option>
           {countries.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
 
         {showNotice && (
           <div style={{ color: "#d9534f", fontSize: "0.95rem" }}>
-            ⚠️ No full drug list available for {selectedCountry}. Please enter
-            the drug name manually.
+            ⚠️ No full drug list available for {selectedCountry}. Please enter the drug name manually.
           </div>
         )}
 
@@ -150,14 +147,12 @@ export default function Home() {
               >
                 {filteredDrugs.slice(0, 100).map((drug, idx) => (
                   <li
-                    key={idx}
+                    key={`${drug}-${idx}`}
                     onClick={() => handleDrugSelect(drug)}
                     style={{
                       padding: "0.5rem",
                       borderBottom: "1px solid #eee",
                       cursor: "pointer",
-                      whiteSpace: "normal",
-                      wordWrap: "break-word",
                     }}
                   >
                     {drug}
@@ -191,9 +186,7 @@ export default function Home() {
         >
           <option value="">Country to search</option>
           {countries.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
 
@@ -219,17 +212,9 @@ export default function Home() {
           rows={6}
           style={{ marginTop: "1rem", width: "100%" }}
         />
-<div
-  style={{
-    marginTop: "3rem",
-    fontSize: "0.8rem",
-    color: "#555",
-    borderTop: "1px solid #ddd",
-    paddingTop: "1rem",
-    lineHeight: "1.5",
-  }}
->
-  <p style={{ textAlign: "justify", marginBottom: "1rem" }}>
+
+        <div style={{ fontSize: "0.8rem", color: "#555", marginTop: "2rem" }}>
+            <p style={{ textAlign: "justify", marginBottom: "1rem" }}>
     <strong>Disclaimer:</strong> MedMatch-Global is an informational tool powered by artificial intelligence. It is not intended to replace professional medical advice, diagnosis, or treatment. The drug information provided on this website is generated using public databases and AI-driven algorithms, and has not been reviewed, verified, or approved by licensed medical professionals.
   </p>
 
@@ -240,8 +225,7 @@ export default function Home() {
   <p style={{ textAlign: "justify" }}>
     MedMatch-Global does not assume any responsibility or liability for the accuracy, completeness, timeliness, or outcomes of the information provided. By using this service, you acknowledge and agree that any reliance on information from MedMatch-Global is at your own risk.
   </p>
-</div>
-
+        </div>
       </div>
     </main>
   );
