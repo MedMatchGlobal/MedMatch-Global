@@ -25,6 +25,7 @@ model DrugUS {
   createdAt DateTime @default(now())
 }
 
+
 model SearchLog {
   id        Int     @id @default(autoincrement())
   country   String
