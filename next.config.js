@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // No need to explicitly enable appDir
+  reactStrictMode: true,
+  // DO NOT include experimental.appDir here
 };
 
 module.exports = nextConfig;

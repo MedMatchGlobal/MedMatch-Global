@@ -11,9 +11,10 @@ export async function GET() {
     return NextResponse.json(drugs);
   } catch (error) {
     console.error('❌ Error fetching US drugs:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Internal Server Error' }),
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }
 }
+    
