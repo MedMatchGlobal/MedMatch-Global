@@ -30,12 +30,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetch("/data/uk-drugs.json")
+    fetch("/api/drugs/uk")
       .then((res) => res.json())
-      .then((data) => setUkDrugs(data))
+      .then((data) => setUkDrugs(data.map((d: any) => d.name)))
       .catch((err) => console.error("Failed to load UK drugs:", err));
 
-    fetch("/data/us-drugs.json")
+    fetch("/api/drugs/us")
       .then((res) => res.json())
       .then((data) => setUsDrugs(data.map((d: any) => d.name)))
       .catch((err) => console.error("Failed to load US drugs:", err));
@@ -214,17 +214,15 @@ export default function Home() {
         />
 
         <div style={{ fontSize: "0.8rem", color: "#555", marginTop: "2rem" }}>
-            <p style={{ textAlign: "justify", marginBottom: "1rem" }}>
-    <strong>Disclaimer:</strong> MedMatch-Global is an informational tool powered by artificial intelligence. It is not intended to replace professional medical advice, diagnosis, or treatment. The drug information provided on this website is generated using public databases and AI-driven algorithms, and has not been reviewed, verified, or approved by licensed medical professionals.
-  </p>
-
-  <p style={{ textAlign: "justify", marginBottom: "1rem" }}>
-    Always seek the guidance of your doctor, pharmacist, or other qualified healthcare provider with any questions you may have regarding a medical condition or treatment. Do not disregard professional medical advice or delay seeking it because of information obtained from this platform.
-  </p>
-
-  <p style={{ textAlign: "justify" }}>
-    MedMatch-Global does not assume any responsibility or liability for the accuracy, completeness, timeliness, or outcomes of the information provided. By using this service, you acknowledge and agree that any reliance on information from MedMatch-Global is at your own risk.
-  </p>
+          <p style={{ textAlign: "justify", marginBottom: "1rem" }}>
+            <strong>Disclaimer:</strong> MedMatch-Global is an informational tool powered by artificial intelligence. It is not intended to replace professional medical advice, diagnosis, or treatment. The drug information provided on this website is generated using public databases and AI-driven algorithms, and has not been reviewed, verified, or approved by licensed medical professionals.
+          </p>
+          <p style={{ textAlign: "justify", marginBottom: "1rem" }}>
+            Always seek the guidance of your doctor, pharmacist, or other qualified healthcare provider with any questions you may have regarding a medical condition or treatment. Do not disregard professional medical advice or delay seeking it because of information obtained from this platform.
+          </p>
+          <p style={{ textAlign: "justify" }}>
+            MedMatch-Global does not assume any responsibility or liability for the accuracy, completeness, timeliness, or outcomes of the information provided. By using this service, you acknowledge and agree that any reliance on information from MedMatch-Global is at your own risk.
+          </p>
         </div>
       </div>
     </main>
