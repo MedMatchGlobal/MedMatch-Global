@@ -1,30 +1,24 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+import { NextResponse } from "next/server";
 
-type Data = {
-  result: string;
-};
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<Data>
-) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ result: "Method not allowed" });
-  }
-
-  const { query } = req.body;
-
-  if (!query) {
-    return res.status(400).json({ result: "Missing query from request body" });
-  }
-
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    return res.status(500).json({ result: "Missing OpenAI API key" });
-  }
-
+export async function POST(req: Request) {
   try {
+    const { query } = await req.json();
+
+    if (!query) {
+      return NextResponse.json(
+        { result: "Missing query from request body" },
+        { status: 400 }
+      );
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { result: "Missing OpenAI API key" },
+        { status: 500 }
+      );
+    }
+
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -36,7 +30,8 @@ export default async function handler(
         messages: [
           {
             role: "system",
-            content: "You are a helpful medical assistant that identifies equivalent medications in other countries based on active ingredients and dosages.",
+            content:
+              "You are a helpful medical assistant that identifies equivalent medications in other countries based on active ingredients and dosages.",
           },
           {
             role: "user",
@@ -50,14 +45,20 @@ export default async function handler(
 
     if (!json.choices || !json.choices[0]?.message?.content) {
       console.error("Unexpected OpenAI response:", json);
-      return res.status(500).json({ result: "Unexpected response from OpenAI" });
+      return NextResponse.json(
+        { result: "Unexpected response from OpenAI" },
+        { status: 500 }
+      );
     }
 
     const result = json.choices[0].message.content;
-    return res.status(200).json({ result });
+    return NextResponse.json({ result });
 
   } catch (error) {
     console.error("OpenAI API error:", error);
-    return res.status(500).json({ result: "Error communicating with OpenAI" });
+    return NextResponse.json(
+      { result: "Error communicating with OpenAI" },
+      { status: 500 }
+    );
   }
 }
