@@ -1,8 +1,6 @@
-export default function HomePage() {
-  return (
-    <main className="p-8">
-      <h1 className="text-3xl font-bold">Welcome to MedMatch Global</h1>
-      <p>This is the homepage deployed from App Router</p>
-    </main>
-  );
+'use client';
+import { useEffect, useState } from 'react';
+
+export default function Home() {
+  // Paste all logic and JSX here from Legacy/index.tsx
 }
