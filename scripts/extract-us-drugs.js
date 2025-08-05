@@ -15,7 +15,6 @@ const extractDrugs = async () => {
         const name = entry.brand_name?.trim();
         const ndcCode = entry.product_ndc?.trim();
         const form = entry.dosage_form?.trim();
-
         return name && ndcCode ? { name, ndcCode, form, strength: null } : null;
       })
       .filter(Boolean);
@@ -24,14 +23,12 @@ const extractDrugs = async () => {
       ...new Map(drugObjects.map((item) => [item.ndcCode, item])).values(),
     ].sort((a, b) => a.name.localeCompare(b.name));
 
-    // 💾 Save to JSON
     const outputPath = path.join(__dirname, "../public/data/us-drugs.json");
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, JSON.stringify(uniqueDrugs, null, 2), "utf8");
 
     console.log(`✅ Extracted and saved ${uniqueDrugs.length} US drugs to JSON`);
 
-    // 🛢️ Insert into PlanetScale DB
     for (const drug of uniqueDrugs) {
       await prisma.drugUS.upsert({
         where: { ndcCode: drug.ndcCode },

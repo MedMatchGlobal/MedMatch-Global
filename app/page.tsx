@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { DrugComboBox } from '@/components/DrugComboBox'; // 👈 NEW IMPORT
 
 export default function Home() {
   const [countries, setCountries] = useState<string[]>([]);
@@ -104,18 +105,11 @@ export default function Home() {
         )}
 
         {countryWithDatabase.includes(selectedCountry) ? (
-          <select
+          <DrugComboBox
+            options={getDrugsForSelectedCountry()}
             value={selectedDrug}
-            onChange={(e) => setSelectedDrug(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem' }}
-          >
-            <option value="">Select Drug</option>
-            {getDrugsForSelectedCountry().map((drug) => (
-              <option key={drug} value={drug}>
-                {drug}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedDrug}
+          />
         ) : (
           <input
             type="text"
@@ -174,16 +168,22 @@ export default function Home() {
           <p style={{ textAlign: 'justify', marginBottom: '1rem' }}>
             <strong>Disclaimer:</strong> MedMatch-Global is an informational tool powered by
             artificial intelligence. It is not intended to replace professional medical advice,
-            diagnosis, or treatment.
+            diagnosis, or treatment. The drug information provided on this website is generated
+            using public databases and AI-driven algorithms, and has not been reviewed, verified,
+            or approved by licensed medical professionals.
           </p>
           <p style={{ textAlign: 'justify', marginBottom: '1rem' }}>
             Always seek the guidance of your doctor, pharmacist, or other qualified healthcare
             provider with any questions you may have regarding a medical condition or treatment.
+            Do not disregard professional medical advice or delay seeking it because of information
+            obtained from this platform.
           </p>
           <p style={{ textAlign: 'justify' }}>
             MedMatch-Global does not assume any responsibility or liability for the accuracy,
-            completeness, timeliness, or outcomes of the information provided. Use at your own risk.
-          </p>
+            completeness, timeliness, or outcomes of the information provided. By using this service,
+            you acknowledge and agree that any reliance on information from MedMatch-Global is at
+            your own risk.
+            </p>
         </div>
       </div>
     </main>

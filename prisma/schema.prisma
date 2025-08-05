@@ -8,11 +8,11 @@ datasource db {
 }
 
 model DrugUK {
-  id        Int     @id @default(autoincrement())
+  id       String   @id @default(cuid())
   name      String
-  form      String?
-  strength  String?
-  dmDCode   String  @unique
+  form     String?  // ✅ optional
+  strength String?  // ✅ optional
+  dmCode   String  @unique
   createdAt DateTime @default(now())
 }
 
@@ -20,8 +20,8 @@ model DrugUS {
   id        Int     @id @default(autoincrement())
   name      String
   ndcCode   String  @unique
-  form      String?
-  strength  String?
+  form     String?  // ✅ optional
+  strength String?  // ✅ optional
   createdAt DateTime @default(now())
 }
 
