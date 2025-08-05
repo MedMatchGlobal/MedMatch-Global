@@ -12,7 +12,7 @@ model DrugUK {
   name      String
   form     String?  // ✅ optional
   strength String?  // ✅ optional
-  dmCode   String  @unique
+  dmCode  String?  // <-- was String before, now optional
   createdAt DateTime @default(now())
 }
 
