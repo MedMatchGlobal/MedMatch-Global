@@ -1,25 +1,17 @@
-import fs from 'fs';
-import path from 'path';
 import { PrismaClient } from '@prisma/client';
+import fs from 'fs/promises';
+import path from 'path';
 
 const prisma = new PrismaClient();
-const inputPath = path.join(__dirname, '../data/cleaned.us-drugs.json');
 
-async function main() {
-  const rawData = fs.readFileSync(inputPath, 'utf-8');
-  const drugs = JSON.parse(rawData);
+export default async function updateDrugUS() {
+  const filePath = path.join(process.cwd(), 'data', 'cleaned.us-drugs.json');
+  const data = await fs.readFile(filePath, 'utf8');
+  const drugNames = JSON.parse(data);
 
-  await prisma.drugUS.deleteMany(); // optional: clear old entries
-
-  const result = await prisma.drugUS.createMany({
-    data: drugs,
-    skipDuplicates: true,
+  await prisma.drugUS.deleteMany(); // Optional: clear before inserting
+  await prisma.drugUS.createMany({
+    data: drugNames.map((name: string) => ({ name })),
+    skipDuplicates: true
   });
-
-  console.log(`✅ Inserted ${result.count} entries into DrugUS`);
 }
-
-main().catch((err) => {
-  console.error('❌ Error inserting drugs:', err);
-  process.exit(1);
-});
