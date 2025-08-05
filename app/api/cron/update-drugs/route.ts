@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { updateDrugUK } from '@/scripts/updateDrugUK';
-import { updateDrugUS } from '@/scripts/updateDrugUS';
+import updateDrugUK from '@/scripts/updateDrugUK'
+import updateDrugUS from '@/scripts/updateDrugUS';
 
 export async function GET() {
   try {
