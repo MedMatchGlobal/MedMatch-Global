@@ -5,7 +5,7 @@ async function main() {
   const raw = await fs.readFile('data/uk-drugs.json', 'utf-8');
   const names = JSON.parse(raw);
 
-  const formatted = names.map((name) => ({
+  const formatted = names.map((name: string) => ({
     name,
     form: null,
     strength: null,
