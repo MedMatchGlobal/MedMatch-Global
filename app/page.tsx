@@ -271,7 +271,7 @@ export default function Home() {
         </div>
 
         {visits !== null && (
-          <p style={{ textAlign: 'center', fontSize: '0.8rem', marginTop: '2rem', color: '#888' }}>
+          <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#555', marginTop: '1rem' }}>
             👥 Total site visits: {visits.toLocaleString()}
           </p>
         )}
