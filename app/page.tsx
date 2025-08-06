@@ -21,6 +21,8 @@ export default function Home() {
   const [conditionDetails, setConditionDetails] = useState('');
   const [userNotes, setUserNotes] = useState('');
 
+  const [visits, setVisits] = useState<number | null>(null);
+
   const countryWithDatabase = ['United Kingdom', 'United States'];
 
   useEffect(() => {
@@ -44,6 +46,13 @@ export default function Home() {
       .then((res) => res.json())
       .then((data) => setUsDrugs(data.map((d: any) => d.name)))
       .catch((err) => console.error('Failed to load US drugs:', err));
+  }, []);
+
+  useEffect(() => {
+    fetch('https://counterapi.dev/api/hit/medmatch-global.vercel.app/visits')
+      .then((res) => res.json())
+      .then((data) => setVisits(data.value))
+      .catch(() => setVisits(null));
   }, []);
 
   const handleCountryChange = (value: string) => {
@@ -246,8 +255,8 @@ export default function Home() {
         />
 
         <div style={{ fontSize: '0.8rem', color: '#555', marginTop: '2rem' }}>
-<p style={{ textAlign: 'justify', marginBottom: '1rem', marginTop: '2rem' }}>
-  <strong style={{ color: '#cc0000', textDecoration: 'underline' }}>DISCLAIMER</strong><br /><br />
+          <p style={{ textAlign: 'justify', marginBottom: '1rem', marginTop: '2rem' }}>
+            <strong style={{ color: '#cc0000', textDecoration: 'underline' }}>DISCLAIMER</strong><br /><br />
             <strong>MedMatch-Global is a publicly accessible, AI-assisted informational platform</strong> that facilitates cross-referencing of medication names and conditions across countries. It is <strong>not a medical device</strong>, and <strong>does not offer medical advice, diagnosis, clinical guidance, or treatment recommendations</strong> of any kind.
           </p>
           <p style={{ textAlign: 'justify', marginBottom: '1rem' }}>
@@ -260,6 +269,12 @@ export default function Home() {
             MedMatch-Global does <strong>not collect personal medical data</strong> and does not tailor results to individual health histories. By using this service, you acknowledge that <strong>no information provided constitutes medical, legal, or pharmaceutical advice</strong>, and that <strong>MedMatch-Global and its developers assume no liability</strong> for actions taken based on its content.
           </p>
         </div>
+
+        {visits !== null && (
+          <p style={{ textAlign: 'center', fontSize: '0.8rem', marginTop: '2rem', color: '#888' }}>
+            👥 Total site visits: {visits.toLocaleString()}
+          </p>
+        )}
       </div>
     </main>
   );
