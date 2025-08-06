@@ -1,3 +1,4 @@
+// page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -275,6 +276,22 @@ export default function Home() {
             👥 Total site visits: {visits.toLocaleString()}
           </p>
         )}
+
+<footer style={{
+  textAlign: 'center',
+  fontSize: '0.8rem',
+  color: '#666',
+  marginTop: '2rem',
+  paddingTop: '1rem',
+  borderTop: '1px solid #ddd'
+}}>
+  © {new Date().getFullYear()} MedMatch-Global™ by GES Consultancy Ltd. All rights reserved.
+  <br />
+  <a href="/terms" style={{ color: '#0b74de', textDecoration: 'underline', marginTop: '0.5rem', display: 'inline-block' }}>
+    Terms & Conditions
+  </a>
+</footer>
+
       </div>
     </main>
   );
