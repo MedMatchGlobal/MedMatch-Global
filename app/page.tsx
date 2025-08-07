@@ -273,7 +273,6 @@ export default function Home() {
           </p>
         )}
 
-<<<<<<< HEAD
 <footer style={{
   textAlign: 'center',
   fontSize: '0.8rem',
@@ -287,25 +286,7 @@ export default function Home() {
   <a href="/terms" style={{ color: '#0b74de', textDecoration: 'underline', marginTop: '0.5rem', display: 'inline-block' }}>
     Terms & Conditions
   </a>
-</footer>
-
-=======
-        <footer style={{
-          textAlign: 'center',
-          fontSize: '0.8rem',
-          color: '#666',
-          marginTop: '2rem',
-          paddingTop: '1rem',
-          borderTop: '1px solid #ddd'
-        }}>
-          © {new Date().getFullYear()} MedMatch-Global™ by GES Consultancy Ltd. All rights reserved.
-          <br />
-          <a href="/terms" style={{ color: '#0b74de', textDecoration: 'underline' }}>
-            Terms & Conditions
-          </a>
-        </footer>
->>>>>>> 2d6aaf4 (Fix condition import, update UI, add footer and counter)
-      </div>
+    </div>
     </main>
   );
 }
