@@ -267,25 +267,37 @@ export default function Home() {
           </p>
         </div>
 
-        {visits !== null && (
-          <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#555', marginTop: '1rem' }}>
-            👥 Total site visits: {visits.toLocaleString()}
-          </p>
-        )}
+{visits !== null && (
+  <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#555', marginTop: '1rem' }}>
+    ➤ Total site visits: {visits.toLocaleString()}
+  </p>
+)}
 
-<footer style={{
-  textAlign: 'center',
-  fontSize: '0.8rem',
-  color: '#666',
-  marginTop: '2rem',
-  paddingTop: '1rem',
-  borderTop: '1px solid #ddd'
-}}>
+<footer
+  style={{
+    textAlign: 'center',
+    fontSize: '0.8rem',
+    color: '#666',
+    marginTop: '2rem',
+    padding: '1rem',
+    borderTop: '1px solid #ddd',
+  }}
+>
   © {new Date().getFullYear()} MedMatch-Global™ by GES Consultancy Ltd. All rights reserved.
   <br />
-  <a href="/terms" style={{ color: '#0b74de', textDecoration: 'underline', marginTop: '0.5rem', display: 'inline-block' }}>
+  <a
+    href="/terms"
+    style={{
+      color: '#0b74de',
+      textDecoration: 'underline',
+      marginTop: '0.5rem',
+      display: 'inline-block',
+    }}
+  >
     Terms & Conditions
   </a>
+</footer>
+
     </div>
     </main>
   );
