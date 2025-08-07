@@ -7,7 +7,7 @@ import path from 'path';
 const prisma = new PrismaClient();
 
 async function main() {
-  const filePath = path.join(__dirname, '../public/data/uk-drugs.json');
+  const filePath = path.join(__dirname, '../data/uk-drugs.json');
   const data = await fs.readFile(filePath, 'utf-8');
   const drugNames: string[] = JSON.parse(data);
 
