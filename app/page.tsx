@@ -66,8 +66,8 @@ export default function Home() {
 
     const query =
       mode === 'medicine'
-        ? `A user is in ${selectedCountry} and is looking for the international equivalent of the drug '${selectedDrug}'${selectedDosage ? ` at a dosage of ${selectedDosage}` : ''}. What is this drug known as in ${searchCountry}? Please return purely informational, language-based content only.`
-        : `A person is currently in ${searchCountry} and wants to understand more about the condition '${selectedCondition}'. They provided the following context: '${conditionDetails}'. They also have the following allergies or health conditions: '${userNotes}'. Please provide a general, publicly available, AI-generated summary without offering clinical advice.`;
+        ? `A user located in ${selectedCountry} is looking for the equivalent name of the drug '${selectedDrug}'${selectedDosage ? ` at a dosage of ${selectedDosage}` : ''} in ${searchCountry}. Please provide a comprehensive overview of the drug’s typical international naming variations, classification, use cases, potential side effects, and any known regulatory differences between the two countries. This summary should be purely language-based, informative, and publicly available — do not include medical recommendations.`
+        : `The user is currently located in ${searchCountry} and seeks information about the condition '${selectedCondition}'. They have provided the following context: '${conditionDetails}' and mentioned these allergies or pathologies: '${userNotes}'. Please return an extensive, educational, and AI-generated overview of the condition, including common symptoms, possible causes, typical treatments, and drug classes used globally — avoiding any clinical advice, diagnosis, or region-specific prescribing rules.`;
 
     try {
       const response = await fetch('/api/ai-search', {
