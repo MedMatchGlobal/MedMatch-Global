@@ -66,7 +66,10 @@ export default function Home() {
 
     const query =
       mode === 'medicine'
-        ? `A user located in ${selectedCountry} is looking for the equivalent name of the drug '${selectedDrug}'${selectedDosage ? ` at a dosage of ${selectedDosage}` : ''} in ${searchCountry}. Please provide a comprehensive overview of the drug’s typical international naming variations, classification, use cases, potential side effects, and any known regulatory differences between the two countries. This summary should be purely language-based, informative, and publicly available — do not include medical recommendations.`
+        ? `A person living in ${selectedCountry} is looking for the equivalent name of the drug '${selectedDrug}'${selectedDosage ? ` at a dosage of ${selectedDosage}` : ''} in ${searchCountry}. Please provide a comprehensive overview of the drug’s typical naming variations, classification, use cases, potential side effects, and any known regulatory differences between the two countries.
+          Also provide a list of available drug options in ${searchCountry}, including branded and generic drugs with a brief overview of the various prices both in local currency and in the currency of ${selectedCountry}.
+          Provide a summary of no more than 200 words that is purely language-based, informative, and publicly available.
+          Label each section clearly.`
         : `The user is currently located in ${searchCountry} and seeks information about the condition '${selectedCondition}'. They have provided the following context: '${conditionDetails}' and mentioned these allergies or pathologies: '${userNotes}'. Please return an extensive, educational, and AI-generated overview of the condition, including common symptoms, possible causes, typical treatments, and drug classes used globally — avoiding any clinical advice, diagnosis, or region-specific prescribing rules.`;
 
     try {
