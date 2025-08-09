@@ -631,7 +631,9 @@ export default function Home() {
             borderTop: '1px solid #ddd',
           }}
         >
-          © {new Date().getFullYear()} MedMatch-Global™ by GES Consultancy Ltd. All rights reserved.
+          © {new Date().getFullYear()} <strong>
+      <span style={{ color: '#1E73BE' }}>medi</span>
+      <span style={{ color: '#008080' }}>cea</span>™ </strong> by GES Consultancy Ltd. All rights reserved.
           <br />
           <a
             href="/terms"
