@@ -42,7 +42,7 @@ export default function TermsPage() {
       </p>
 
       <p style={{ marginTop: '2rem' }}>
-        If you have questions, contact us at: <a href="mailto:info@medmatch.global">info@medmatch.global</a>
+        If you have questions, contact us at: <a href="mailto:info@medicea.global">info@medicea.global</a>
       </p>
     </main>
   );

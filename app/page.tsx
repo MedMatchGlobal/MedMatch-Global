@@ -59,7 +59,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetch('https://counterapi.dev/api/hit/medmatch-global.vercel.app/visits')
+    fetch('https://counterapi.dev/api/hit/medicea.vercel.app/visits')
       .then((res) => res.json())
       .then((data) => setVisits(data.value))
       .catch(() => setVisits(null));
