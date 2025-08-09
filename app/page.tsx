@@ -502,8 +502,8 @@ export default function Home() {
     <main style={{ maxWidth: '600px', margin: 'auto', padding: '2rem' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1rem' }}>
         <img
-          src="/Logo.png"
-          alt="MedMatch Global Logo"
+          src="/logo.png"
+          alt="medicea logo"
           style={{ maxWidth: '600px', width: '100%', height: 'auto', marginBottom: '0.5rem' }}
         />
 
