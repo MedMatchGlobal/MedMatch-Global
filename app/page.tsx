@@ -114,6 +114,21 @@ export default function Home() {
       transition: 'transform 0.05s ease',
     } as React.CSSProperties);
 
+  // Red gradient button (Symptoms Triage)
+  const gradientBtnRed = (active: boolean) =>
+    ({
+      padding: '0.5rem 1rem',
+      border: 'none',
+      borderRadius: '10px',
+      cursor: 'pointer',
+      color: active ? 'white' : '#b30000',
+      background: active
+        ? 'linear-gradient(135deg, #c61a1a 0%, #ff7a7a 100%)'
+        : 'linear-gradient(135deg, #ffe9e9 0%, #fff7f7 100%)',
+      boxShadow: active ? '0 2px 10px rgba(198,26,26,0.25)' : 'none',
+      transition: 'transform 0.05s ease',
+    } as React.CSSProperties);
+
   const clearAll = () => {
     setResult('');
     setSelectedDrug('');
@@ -157,14 +172,18 @@ export default function Home() {
         `Please return an extensive, educational, and AI-generated overview of the condition, including common symptoms, possible causes, ` +
         `typical treatments, and drug classes used globally — avoiding any clinical advice, diagnosis, or region-specific prescribing rules.`;
     } else if (mode === 'generic') {
+      const dosePhrase = selectedDosage ? ` at the dosage of ${selectedDosage}` : '';
       query =
-        `Please provide a list of the top 10 generic medicines that are fully equivalent to '${selectedDrug}' ` +
-        `at the dosage of ${selectedDosage} in ${targetCountry} and are also sold in ${targetCountry}. Please, also mention the current price the ${selectedDrug} at the dosage of ${selectedDosage} is sold at` +
-        `Please recommend the generic drug that is closest to 100% equivalence and add, next to each of the suggested generic products, the average price it is currently sold at`;
+        `Please provide a list of the top 10 generic medicines that are fully equivalent to '${selectedDrug}'${dosePhrase} in ${targetCountry} and are also sold in ${targetCountry}. ` +
+        (selectedDosage
+          ? `Please also mention the current price the ${selectedDrug}${dosePhrase} is sold at. `
+          : `Please also mention the current price the ${selectedDrug} is sold at (use the most common/typical dosage if required). `) +
+        `Please recommend the generic drug that is closest to 100% equivalence and add, next to each suggested generic product, the average price it is currently sold at. Finally, if the drug is not 100% equivalent to the one indicated, please mention where the differences are ensuring to highlight if these differences are in the main API or in the other ingredients and/or components. Therefore, should these raise concerns in terms of allergy, please mention that if a person is allergic to that specific ingredients should seek medical help before using that medicine.`;
     } else if (mode === 'leaflet') {
+      const doseInLeaflet = selectedDosage ? `, at the ${selectedDosage}` : '';
       query =
-        `Please search the web and seek the Patient Information Leaflet of the ${selectedDrug}, at the ${selectedDosage} ` +
-        `– if provided – and in the ${targetCountry}. If the Patient Information Leaflet is not fully available, please gather and list the following in full:\n` +
+        `Please search the web and seek the Patient Information Leaflet of the ${selectedDrug}${doseInLeaflet} in ${targetCountry}. ` +
+        `If the Patient Information Leaflet is not fully available, please gather and list the following in full:\n` +
         `- What [Medicine Name] is and what it is used for\n` +
         `  • Explains the active ingredient(s)\n` +
         `  • States what the medicine treats or prevents\n` +
@@ -233,13 +252,25 @@ export default function Home() {
   const renderInputs = () => {
     if (mode === 'triage') {
       return (
-        <>
-          <h3 style={{ textAlign: 'center' }}>💬 Symptom Triage Assistant</h3>
-          <p style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.5rem' }}>
-            You can describe a symptom (e.g. <i>"My ear is sore"</i> or <i>"I twisted my ankle"</i>) and MedMatch-Global will ask follow-up questions to provide helpful, AI-assisted educational guidance.
+        <div
+          style={{
+            borderRadius: '12px',
+            padding: '1rem',
+            background: 'linear-gradient(135deg, #ffe9e9 0%, #fff7f7 100%)',
+            border: '1px solid #ffd1d1',
+          }}
+        >
+          <h3 style={{ textAlign: 'center', marginTop: 0 }}>💬 Symptoms Triage</h3>
+          <p style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.75rem', textAlign: 'center' }}>
+            Describe a symptom (e.g. <i>"My ear is sore"</i> or <i>"I twisted my ankle"</i>) and{' '}
+            <strong>
+              <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>cea</span>™
+            </strong>{' '}
+            will ask follow-ups to provide an AI-assisted educational summary.
           </p>
           <SymptomTriage />
-        </>
+        </div>
       );
     }
 
@@ -253,7 +284,9 @@ export default function Home() {
           >
             <option value="">Please select your Home Country</option>
             {countries.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
 
@@ -294,7 +327,9 @@ export default function Home() {
           >
             <option value="">Please select the Country to search</option>
             {countries.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
         </>
@@ -343,7 +378,9 @@ export default function Home() {
           >
             <option value="">Country to search</option>
             {countries.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
         </>
@@ -360,7 +397,9 @@ export default function Home() {
           >
             <option value="">Country to search</option>
             {countries.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
 
@@ -382,7 +421,7 @@ export default function Home() {
 
           <input
             type="text"
-            placeholder="Please enter dosage"
+            placeholder="Enter dosage (optional)"
             value={selectedDosage}
             onChange={(e) => setSelectedDosage(e.target.value)}
             style={{ width: '100%', padding: '0.5rem' }}
@@ -401,7 +440,9 @@ export default function Home() {
           >
             <option value="">Country to search</option>
             {countries.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
 
@@ -423,7 +464,7 @@ export default function Home() {
 
           <input
             type="text"
-            placeholder="Please enter dosage"
+            placeholder="Enter dosage (optional)"
             value={selectedDosage}
             onChange={(e) => setSelectedDosage(e.target.value)}
             style={{ width: '100%', padding: '0.5rem' }}
@@ -442,7 +483,9 @@ export default function Home() {
           >
             <option value="">Please select your Home Country</option>
             {countries.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
 
@@ -476,7 +519,9 @@ export default function Home() {
           >
             <option value="">Please select the Country to search</option>
             {countries.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
         </>
@@ -492,8 +537,9 @@ export default function Home() {
 
     if (mode === 'international') return !(originCountry && selectedDrug && targetCountry);
     if (mode === 'condition') return !(selectedCondition && targetCountry);
-    if (mode === 'generic') return !(selectedDrug && selectedDosage && targetCountry);
-    if (mode === 'leaflet') return !(selectedDrug && selectedDosage && targetCountry);
+    // dosage NO LONGER required for these two:
+    if (mode === 'generic') return !(selectedDrug && targetCountry);
+    if (mode === 'leaflet') return !(selectedDrug && targetCountry);
     if (mode === 'pets') return !(originCountry && selectedDrug && targetCountry);
     return true;
   };
@@ -504,10 +550,32 @@ export default function Home() {
         <img
           src="/logo.png"
           alt="medicea logo"
-          style={{ maxWidth: '600px', width: '100%', height: 'auto', marginBottom: '0.5rem' }}
+          style={{ maxWidth: '600px', width: '100%', height: 'auto', marginBottom: '2rem' }}
         />
 
-        {/* Buttons (pets in green) */}
+        {/* Handwritten tagline */}
+        <p
+          style={{
+            fontFamily:
+              "'Caveat', 'Patrick Hand', 'Shadows Into Light', 'Comic Sans MS', 'Segoe UI', cursive",
+            fontSize: '0.95rem',
+            lineHeight: 1.55,
+            color: '#333',
+            textAlign: 'center',
+            letterSpacing: '0.3px',
+            margin: '0.6rem 0 2.5rem',
+            maxWidth: '58ch',
+          }}
+        >
+          Inspired by Panacea, the goddess of the universal cure,&nbsp;
+          <strong>
+            <span style={{ color: '#1E73BE' }}>medi</span>
+            <span style={{ color: '#008080' }}>céa</span>™
+          </strong>{' '}
+          is your passport to medicine anywhere in the world — connecting people to life-saving treatments without borders is our mission.
+        </p>
+
+        {/* Buttons (pets in green, triage in red) */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
           <button onClick={() => handleMode('international')} style={gradientBtnBlue(mode === 'international')}>
             International Medicine Search
@@ -518,7 +586,7 @@ export default function Home() {
           <button onClick={() => handleMode('generic')} style={gradientBtnBlue(mode === 'generic')}>
             Search Generic
           </button>
-          <button onClick={() => handleMode('triage')} style={gradientBtnBlue(mode === 'triage')}>
+          <button onClick={() => handleMode('triage')} style={gradientBtnRed(mode === 'triage')}>
             Symptoms Triage
           </button>
           <button onClick={() => handleMode('leaflet')} style={gradientBtnBlue(mode === 'leaflet')}>
@@ -579,41 +647,52 @@ export default function Home() {
           />
         )}
 
-<div style={{ fontSize: '0.8rem', color: '#555', marginTop: '2rem' }}>
-  <p style={{ textAlign: 'justify', marginBottom: '1rem' }}>
-    <strong style={{ color: '#cc0000', textDecoration: 'underline' }}>DISCLAIMER</strong><br /><br />
-    <strong>
-      <span style={{ color: '#1E73BE' }}>medi</span>
-      <span style={{ color: '#008080' }}>cea</span>™ is a publicly accessible, AI-assisted informational platform
-    </strong> that
-    facilitates cross-referencing of medication names and health conditions across countries. It also
-    offers an <strong>AI-powered Symptom Triage Assistant</strong> that generates <u>purely educational outputs</u> based on public data.
-    All content is for <strong>informational purposes only</strong>.
-  </p>
-  <p style={{ textAlign: 'justify' }}>
-    <strong>
-      <span style={{ color: '#1E73BE' }}>medi</span>
-      <span style={{ color: '#008080' }}>cea</span>™ is not a medical device and does not provide medical advice, diagnosis, or treatment.
-    </strong> The symptom triage assistant is an AI experiment and <strong>must not be used to guide health decisions or emergencies.</strong> Responses are generated from large language models and are not reviewed by doctors or qualified professionals.
-  </p>
-  <p style={{ textAlign: 'justify' }}>
-    Do not rely on this for any clinical, pharmaceutical, or legal decisions. By using this platform, you accept that
-    <strong> no liability is assumed by 
-      <span style={{ color: '#1E73BE' }}> medi</span>
-      <span style={{ color: '#008080' }}>cea</span>™ or its creators
-    </strong>.
-  </p>
-  <p style={{ textAlign: 'justify' }}>
-    <strong>
-      <span style={{ color: '#1E73BE' }}>medi</span>
-    <span style={{ color: '#008080' }}>cea</span>™ </strong>does <strong>not collect personal medical data</strong> and does not tailor results to individual health histories.
-    By using this service, you acknowledge that <strong>no information provided constitutes medical, legal, or pharmaceutical advice</strong>,
-    and that <strong>
-      <span style={{ color: '#1E73BE' }}>medi</span>
-      <span style={{ color: '#008080' }}>cea</span>™ and its developers assume no liability
-    </strong> for actions taken based on its content.
-  </p>
-</div>
+        <div style={{ fontSize: '0.8rem', color: '#555', marginTop: '2rem' }}>
+          <p style={{ textAlign: 'justify', marginBottom: '1rem' }}>
+            <strong style={{ color: '#cc0000', textDecoration: 'underline' }}>DISCLAIMER</strong>
+            <br />
+            <br />
+            <strong>
+              <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>cea</span>™ is a publicly accessible, AI-assisted
+              informational platform
+            </strong>{' '}
+            that facilitates cross-referencing of medication names and health conditions across countries. It also
+            offers an <strong>AI-powered Symptom Triage Assistant</strong> that generates <u>purely educational outputs</u> based on public data.
+            All content is for <strong>informational purposes only</strong>.
+          </p>
+          <p style={{ textAlign: 'justify' }}>
+            <strong>
+              <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>cea</span>™ is not a medical device and does not provide medical
+              advice, diagnosis, or treatment.
+            </strong>{' '}
+            The symptom triage assistant is an AI experiment and <strong>must not be used to guide health decisions or emergencies.</strong>{' '}
+            Responses are generated from large language models and are not reviewed by doctors or qualified professionals.
+          </p>
+          <p style={{ textAlign: 'justify' }}>
+            Do not rely on this for any clinical, pharmaceutical, or legal decisions. By using this platform, you accept that
+            <strong>
+              {' '}
+              no liability is assumed by <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>cea</span>™ or its creators
+            </strong>
+            .
+          </p>
+          <p style={{ textAlign: 'justify' }}>
+            <strong>
+              <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>cea</span>™
+            </strong>{' '}
+            does <strong>not collect personal medical data</strong> and does not tailor results to individual health histories.
+            By using this service, you acknowledge that <strong>no information provided constitutes medical, legal, or pharmaceutical advice</strong>, and that{' '}
+            <strong>
+              <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>cea</span>™ and its developers assume no liability
+            </strong>{' '}
+            for actions taken based on its content.
+          </p>
+        </div>
 
         {visits !== null && (
           <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#555', marginTop: '1rem' }}>
@@ -631,9 +710,12 @@ export default function Home() {
             borderTop: '1px solid #ddd',
           }}
         >
-          © {new Date().getFullYear()} <strong>
-      <span style={{ color: '#1E73BE' }}>medi</span>
-      <span style={{ color: '#008080' }}>cea</span>™ </strong> by GES Consultancy Ltd. All rights reserved.
+          © {new Date().getFullYear()}{' '}
+          <strong>
+            <span style={{ color: '#1E73BE' }}>medi</span>
+            <span style={{ color: '#008080' }}>cea</span>™
+          </strong>{' '}
+          by GES Consultancy Ltd. All rights reserved.
           <br />
           <a
             href="/terms"
