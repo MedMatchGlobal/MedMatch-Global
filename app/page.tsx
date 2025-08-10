@@ -342,7 +342,7 @@ export default function Home() {
           <input
             type="text"
             list="condition-list"
-            placeholder="Select condition"
+            placeholder="Select or type condition"
             value={selectedCondition}
             onChange={(e) => setSelectedCondition(e.target.value)}
             style={{ width: '100%', padding: '0.5rem' }}
@@ -654,7 +654,7 @@ export default function Home() {
             <br />
             <strong>
               <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>cea</span>™ is a publicly accessible, AI-assisted
+              <span style={{ color: '#008080' }}>céa</span>™ is a publicly accessible, AI-assisted
               informational platform
             </strong>{' '}
             that facilitates cross-referencing of medication names and health conditions across countries. It also
@@ -664,7 +664,7 @@ export default function Home() {
           <p style={{ textAlign: 'justify' }}>
             <strong>
               <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>cea</span>™ is not a medical device and does not provide medical
+              <span style={{ color: '#008080' }}>céa</span>™ is not a medical device and does not provide medical
               advice, diagnosis, or treatment.
             </strong>{' '}
             The symptom triage assistant is an AI experiment and <strong>must not be used to guide health decisions or emergencies.</strong>{' '}
@@ -675,20 +675,20 @@ export default function Home() {
             <strong>
               {' '}
               no liability is assumed by <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>cea</span>™ or its creators
+              <span style={{ color: '#008080' }}>céa</span>™ or its creators
             </strong>
             .
           </p>
           <p style={{ textAlign: 'justify' }}>
             <strong>
               <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>cea</span>™
+              <span style={{ color: '#008080' }}>céa</span>™
             </strong>{' '}
             does <strong>not collect personal medical data</strong> and does not tailor results to individual health histories.
             By using this service, you acknowledge that <strong>no information provided constitutes medical, legal, or pharmaceutical advice</strong>, and that{' '}
             <strong>
               <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>cea</span>™ and its developers assume no liability
+              <span style={{ color: '#008080' }}>céa</span>™ and its developers assume no liability
             </strong>{' '}
             for actions taken based on its content.
           </p>
@@ -713,7 +713,7 @@ export default function Home() {
           © {new Date().getFullYear()}{' '}
           <strong>
             <span style={{ color: '#1E73BE' }}>medi</span>
-            <span style={{ color: '#008080' }}>cea</span>™
+            <span style={{ color: '#008080' }}>céa</span>™
           </strong>{' '}
           by GES Consultancy Ltd. All rights reserved.
           <br />
