@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import {
   Command,
   CommandInput,
@@ -12,6 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import * as React from 'react';
 
 interface DrugComboBoxProps {
   options: string[];

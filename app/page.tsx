@@ -1,20 +1,35 @@
-// page.tsx
+// app/page.tsx
 'use client';
 
 import { DrugComboBox } from '@/components/DrugComboBox';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import SymptomTriage from './components/SymptomTriage';
 import { groupedConditions } from './constants/conditions';
 
-type Mode =
-  | 'international'
-  | 'condition'
-  | 'generic'
-  | 'triage'
-  | 'leaflet'
-  | 'pets';
+// === NEW: language utilities (no UI refactor) ===
+import LanguageButton from './components/LanguageButton';
+import { LanguageProvider, useLanguage } from './LanguageProvider';
+import { translateClient } from './lib/translateClient';
 
-export default function Home() {
+// === NEW: markdown rendering ===
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
+
+// Keep your Mode type as-is
+type Mode = 'international' | 'condition' | 'generic' | 'triage' | 'leaflet' | 'pets';
+
+// Wrap the page in the provider (so language choice persists & is available)
+export default function PageWrapper() {
+  return (
+    <LanguageProvider>
+      <Home />
+    </LanguageProvider>
+  );
+}
+
+function Home() {
+  const { lang } = useLanguage(); // we only need the code to translate the result
+
   const [countries, setCountries] = useState<string[]>([]);
   const [ukDrugs, setUkDrugs] = useState<string[]>([]);
   const [usDrugs, setUsDrugs] = useState<string[]>([]);
@@ -161,9 +176,9 @@ export default function Home() {
         `please provide a list of the top 5 equivalent drugs – either branded or generic – in the ${targetCountry} ` +
         `sorting them by percentage of equivalence starting with those with the highest percentage along with the ` +
         `respective average prices in the currency of the ${targetCountry} but also converted to the currency of the ${originCountry}. ` +
-        `In addition to that, can you please provide a comprehensive overview of the drug’s typical naming variations, classification, ` +
+        `In addition to that, provide a comprehensive overview of the drug’s typical naming variations, classification, ` +
         `use cases, potential side effects, and any known regulatory differences between the two countries. ` +
-        `Finally, please provide a summary of no more than 75 words that is purely language-based, informative, and publicly available. ` +
+        `Finally, provide a summary of no more than 75 words that is purely language-based, informative, and publicly available. ` +
         `Don’t forget to label each section clearly.`;
     } else if (mode === 'condition') {
       query =
@@ -216,13 +231,9 @@ export default function Home() {
       query =
         `A person living in ${originCountry} is looking for the equivalent name of the drug '${selectedDrug}'` +
         `${dosagePart} in ${targetCountry} and exclusively for animal usage. ` +
-        `Based on the API and additional components present in the '${selectedDrug}', please provide a list of the top 5 equivalent drugs – ` +
-        `either branded or generic – exclusively for animal usage in the ${targetCountry} sorting them by percentage of equivalence starting ` +
-        `with those with the highest percentage along with the respective average prices in the currency of the ${targetCountry} but also ` +
-        `converted to the currency of the ${originCountry}. In addition to that, can you please provide a comprehensive overview of the drug’s ` +
-        `typical naming variations, classification, use cases, potential side effects, and any known regulatory differences between the two countries. ` +
-        `Finally, please provide a summary of no more than 50 words that is purely language-based, informative, and publicly available. ` +
-        `Don’t forget to label each section clearly.`;
+        `Based on the API and additional components present in the '${selectedDrug}', provide a list of the top 5 equivalent drugs — ` +
+        `either branded or generic — exclusively for animal usage in the ${targetCountry}, sorted by percentage of equivalence with average prices in the local currency and converted to the currency of ${originCountry}. ` +
+        `Also provide naming variations, classification, use cases, potential side effects, and any known regulatory differences between the two countries, plus a ≤50-word summary.`;
     } else {
       // triage handled by its own component
       setLoading(false);
@@ -233,15 +244,50 @@ export default function Home() {
       const response = await fetch('/api/ai-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({
+          query,
+          mode,
+          originCountry,
+          targetCountry,
+          selectedDrug,
+          selectedDosage,
+          selectedCondition,
+          conditionDetails,
+          userNotes,
+          lang,
+          debug: true, // toggle for one run if you want to see prompts in the server log
+        }),
       });
 
       const data = await response.json();
-      setResult(
-        '🔍 Informational Summary:\n\n' +
-          (data.result || 'No result found.') +
-          '\n\n⚠️ This is not a diagnosis, prescription, or treatment plan.'
-      );
+      if (data?._debug) console.log('DEBUG system/user', data._debug);
+
+      // Show exactly what the server returned; translate only as a fallback.
+      const serverText = (data?.result ?? '').trim();
+      let finalText = serverText;
+
+      if (lang !== 'en' && serverText) {
+        try {
+          const looksItalian = /[àèéìòù]|(zione|mente|gli|che|per|con)/i.test(serverText);
+          const looksFrench = /[àâçèéêëîïôùûüÿœ]|(tion|est|avec|pour)/i.test(serverText);
+          const looksGerman = /(die|der|das|und|über|ä|ö|ü|ß)/i.test(serverText);
+          const looksSpanish = /(ción|que|con|para|de|á|é|í|ó|ú|ñ)/i.test(serverText);
+          const looksPortuguese = /(ção|que|com|para|de|á|é|í|ó|ú|ã|õ|ç)/i.test(serverText);
+
+          const alreadyLang =
+            (lang === 'it' && looksItalian) ||
+            (lang === 'fr' && looksFrench) ||
+            (lang === 'de' && looksGerman) ||
+            (lang === 'es' && looksSpanish) ||
+            (lang === 'pt' && looksPortuguese);
+
+          finalText = alreadyLang ? serverText : await translateClient(serverText, lang);
+        } catch {
+          finalText = serverText; // fail-open
+        }
+      }
+
+      setResult(finalText || 'No result found.');
     } catch {
       setResult('An error occurred.');
     } finally {
@@ -544,6 +590,17 @@ export default function Home() {
     return true;
   };
 
+  // === NEW: convert result (markdown) -> safe HTML for rendering ===
+  const html = useMemo(() => {
+    try {
+      const parsed = marked.parse(result || '');
+      // DOMPurify uses window; this component is client, so it's safe.
+      return DOMPurify.sanitize(parsed as string);
+    } catch {
+      return '';
+    }
+  }, [result]);
+
   return (
     <main style={{ maxWidth: '600px', margin: 'auto', padding: '2rem' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1rem' }}>
@@ -553,7 +610,7 @@ export default function Home() {
           style={{ maxWidth: '600px', width: '100%', height: 'auto', marginBottom: '2rem' }}
         />
 
-        {/* Handwritten tagline */}
+        {/* Tagline */}
         <p
           style={{
             fontFamily:
@@ -563,7 +620,7 @@ export default function Home() {
             color: '#333',
             textAlign: 'center',
             letterSpacing: '0.3px',
-            margin: '0.6rem 0 2.5rem',
+            margin: '0.6rem 0 0.9rem',
             maxWidth: '58ch',
           }}
         >
@@ -574,6 +631,11 @@ export default function Home() {
           </strong>{' '}
           is your passport to medicine anywhere in the world — connecting people to life-saving treatments without borders is our mission.
         </p>
+
+        {/* NEW: Language switcher directly under the tagline */}
+        <div style={{ marginBottom: '1.25rem' }}>
+          <LanguageButton />
+        </div>
 
         {/* Buttons (pets in green, triage in red) */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -637,14 +699,9 @@ export default function Home() {
           </button>
         )}
 
+        {/* === NEW: render formatted markdown instead of a plain textarea === */}
         {mode !== 'triage' && (
-          <textarea
-            readOnly
-            value={result}
-            placeholder="Informational summary will appear here..."
-            rows={14}
-            style={{ marginTop: '1rem', width: '100%' }}
-          />
+          <article className="ai-result" dangerouslySetInnerHTML={{ __html: html }} />
         )}
 
         <div style={{ fontSize: '0.8rem', color: '#555', marginTop: '2rem' }}>

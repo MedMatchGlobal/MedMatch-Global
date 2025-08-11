@@ -1,15 +1,34 @@
+// app/api/translate/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(req: NextRequest){
-  try{
-    const {text, target} = await req.json();
-    if(!text || !target) return NextResponse.json({error:"Missing text/target"}, {status:400});
+const langName: Record<string, string> = {
+  en: "English",
+  it: "Italian",
+  fr: "French",
+  de: "German",
+  es: "Spanish",
+  pt: "Portuguese",
+};
 
-    // Send to your existing /api/openai so no key is exposed client-side
-    const prompt = `Translate to ${target}. Preserve meaning, tone and formatting. Return plain text only.\n\n${text}`;
-    const resp = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/openai`, {
+export async function POST(req: NextRequest) {
+  try {
+    const { text, target } = await req.json();
+    if (!text || !target) {
+      return NextResponse.json({ error: "Missing text/target" }, { status: 400 });
+    }
+
+    // Always use absolute origin so it works on localhost & Vercel
+    const { origin } = new URL(req.url);
+
+    const targetName = langName[target] ?? target; // map "it" -> "Italian"
+    const prompt =
+      `Translate the text to ${targetName}.` +
+      ` Preserve meaning, tone and formatting (including line breaks and bullets).` +
+      ` Return plain text only.\n\n${text}`;
+
+    const resp = await fetch(`${origin}/api/openai`, {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: [
           { role: "system", content: "You are a precise, context-aware translator for health/medical text." },
@@ -17,11 +36,16 @@ export async function POST(req: NextRequest){
         ]
       })
     });
-    if(!resp.ok){ return NextResponse.json({error:`OpenAI route failed`}, {status:500}); }
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      return NextResponse.json({ error: `Translation route failed: ${err}` }, { status: 500 });
+    }
+
     const data = await resp.json();
     const translated = data?.content ?? data?.message ?? data?.text ?? "";
-    return NextResponse.json({translated});
-  }catch(e:any){
-    return NextResponse.json({error: e?.message ?? "Unknown error"}, {status:500});
+    return NextResponse.json({ translated });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
   }
 }
