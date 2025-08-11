@@ -2,7 +2,7 @@
 import '../styles/globals.css'; // correct path from app/layout.tsx
 
 export const metadata = {
-  title: 'medicea',
+  title: 'medicéa',
   description: 'Global drug matching for safe travel and relocation.',
 };
 
