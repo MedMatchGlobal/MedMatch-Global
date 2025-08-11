@@ -1,5 +1,6 @@
 // app/layout.tsx
 import Script from "next/script";
+import { Suspense } from "react";
 import "../styles/globals.css";
 import GATracker from "./ga-tracker";
 
@@ -19,21 +20,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="afterInteractive"
         />
-        {/* GA init */}
+        {/* GA init (disable auto page_view so we control SPA tracking) */}
         <Script id="gtag-init" strategy="afterInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
-            // Init GA
             gtag('js', new Date());
-            // Disable auto page_view so we control SPA tracking
             gtag('config', '${GA_ID}', { send_page_view: false });
           `}
         </Script>
       </head>
-      <body style={{ overflowY: 'scroll' }}>
-        {/* Tracks initial load + route changes */}
-        <GATracker />
+      <body style={{ overflowY: "scroll" }}>
+        {/* Wrap hooks in Suspense to satisfy App Router prerendering */}
+        <Suspense fallback={null}>
+          <GATracker />
+        </Suspense>
         {children}
       </body>
     </html>
