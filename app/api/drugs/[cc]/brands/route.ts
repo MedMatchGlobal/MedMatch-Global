@@ -1,41 +1,96 @@
-import { NextRequest, NextResponse } from 'next/server';
+// app/api/drugs/[cc]/brands/route.ts
+import { NextResponse } from "next/server";
 
-type Item = { id: string | number; name: string };
-type List = { items: Item[] };
+/**
+ * Optional: make this "edge" if you want
+ * export const runtime = "edge";
+ */
 
-// --- TEMP sample data (replace with your DB lookups) ---
-const UK_BRANDS: Item[] = [
-  { id: 'panadol', name: 'Panadol' },
-  { id: 'calpol', name: 'Calpol' },
-  { id: 'anadin', name: 'Anadin' },
-];
+type Context = { params: { cc: string } };
 
-const US_BRANDS: Item[] = [
-  { id: 'tylenol', name: 'Tylenol' },
-  { id: 'advil', name: 'Advil' },
-  { id: 'aleve', name: 'Aleve' },
-];
-
-function filter(list: Item[], q: string, limit: number): Item[] {
-  const lo = q.toLowerCase();
-  return list.filter(x => x.name.toLowerCase().includes(lo)).slice(0, limit);
+function badRequest(message: string) {
+  return NextResponse.json({ error: message }, { status: 400 });
 }
 
-// TODO: replace this with real DB queries
-async function lookup(cc: 'uk' | 'us', q: string, limit: number): Promise<Item[]> {
-  return cc === 'uk' ? filter(UK_BRANDS, q, limit)
-       : cc === 'us' ? filter(US_BRANDS, q, limit)
-       : [];
+function ok<T>(data: T) {
+  return NextResponse.json(data, { status: 200 });
 }
 
-export async function GET(req: NextRequest, { params }: { params: { cc: string } }) {
-  const cc = (params.cc || '').toLowerCase() as 'uk' | 'us';
-  const { searchParams } = new URL(req.url);
-  const q = (searchParams.get('q') || '').trim();
-  const limit = Math.max(1, Math.min(50, Number(searchParams.get('limit') || '20')));
+/**
+ * CORS / preflight
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}
 
-  if (!q || q.length < 2) return NextResponse.json<List>({ items: [] });
+/**
+ * GET /api/drugs/[cc]/brands?q=...&limit=20&offset=0
+ *
+ * Responds with:
+ * {
+ *   cc: "uk",
+ *   query: "para",
+ *   total: 0,
+ *   brands: []
+ * }
+ */
+export async function GET(req: Request, { params }: Context) {
+  const url = new URL(req.url);
+  const q = (url.searchParams.get("q") || "").trim();
+  const limit = Number(url.searchParams.get("limit") || "20");
+  const offset = Number(url.searchParams.get("offset") || "0");
 
-  const items = await lookup(cc, q, limit);
-  return NextResponse.json<List>({ items });
+  const cc = (params?.cc || "").toLowerCase();
+
+  if (!cc || cc.length < 2 || cc.length > 3) {
+    return badRequest("Missing or invalid country code `cc` path param.");
+  }
+  if (Number.isNaN(limit) || limit < 0 || limit > 200) {
+    return badRequest("Invalid `limit` (0–200).");
+  }
+  if (Number.isNaN(offset) || offset < 0) {
+    return badRequest("Invalid `offset` (>= 0).");
+  }
+
+  try {
+    /**
+     * ── Plug your real data source here ────────────────────────────────────────
+     * If you already have Prisma / DB helpers, call them and return:
+     *   { cc, query: q, total, brands }
+     *
+     * Example shape (keep this shape stable for the UI):
+     *   const { total, brands } = await getBrandsForCountry({ cc, q, limit, offset });
+     */
+
+    // TEMP placeholder so the route compiles & works immediately:
+    const total = 0;
+    const brands: string[] = [];
+
+    // If you want a quick in-memory demo while wiring up real data, uncomment:
+    // const demo: Record<string, string[]> = {
+    //   uk: ["Paracetamol", "Panadol", "Calpol", "Tylenol (US import)", "Anadin"],
+    //   us: ["Acetaminophen", "Tylenol", "Excedrin", "Midol", "FeverAll"],
+    // };
+    // const all = (demo[cc] || []).filter((n) =>
+    //   q ? n.toLowerCase().includes(q.toLowerCase()) : true
+    // );
+    // const total = all.length;
+    // const brands = all.slice(offset, offset + limit);
+
+    return ok({ cc, query: q, total, brands });
+  } catch (err) {
+    console.error("brands route error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch brands." },
+      { status: 500 }
+    );
+  }
 }
