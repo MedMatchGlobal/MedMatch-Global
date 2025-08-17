@@ -1,61 +1,66 @@
 // app/api/drugs/[cc]/brands/route.ts
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-/**
- * Preflight / CORS (optional but harmless)
- */
+/** Force dynamic so this route never gets statically optimized. */
+export const dynamic = "force-dynamic";
+
+/** CORS helper (used for both OPTIONS and GET). */
+function cors(json: unknown, init?: ResponseInit) {
+  const res = NextResponse.json(json, init);
+  res.headers.set("Access-Control-Allow-Origin", "*");
+  res.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.headers.set("Access-Control-Max-Age", "86400");
+  return res;
+}
+
+/** Preflight (CORS) */
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
+  return cors(null, { status: 204 });
 }
 
 /**
  * GET /api/drugs/[cc]/brands?q=...&limit=20&offset=0
- * Second arg **must** be typed inline as { params: { ... } } — no aliases.
+ *
+ * NOTE: The second arg MUST be typed inline as { params: { cc: string } }
+ * for Next.js App Router / Vercel to recognise it.
  */
 export async function GET(
-  req: Request,
+  req: NextRequest,
   { params }: { params: { cc: string } }
 ) {
   const url = new URL(req.url);
+
   const q = (url.searchParams.get("q") || "").trim();
-  const limit = Number(url.searchParams.get("limit") || "20");
-  const offset = Number(url.searchParams.get("offset") || "0");
+  const limitRaw = url.searchParams.get("limit") || "20";
+  const offsetRaw = url.searchParams.get("offset") || "0";
 
-  const cc = (params?.cc || "").toLowerCase();
+  const limit = Number(limitRaw);
+  const offset = Number(offsetRaw);
+  const cc = (params?.cc || "").trim().toLowerCase();
 
-  // basic validation
+  // Basic validation
   if (!cc || cc.length < 2 || cc.length > 3) {
-    return NextResponse.json(
-      { error: "Missing or invalid country code `cc` path param." },
-      { status: 400 }
-    );
+    return cors({ error: "Missing or invalid path param `cc` (2–3 letters)." }, { status: 400 });
   }
   if (Number.isNaN(limit) || limit < 0 || limit > 200) {
-    return NextResponse.json({ error: "Invalid `limit` (0–200)." }, { status: 400 });
+    return cors({ error: "Invalid `limit` (0–200)." }, { status: 400 });
   }
   if (Number.isNaN(offset) || offset < 0) {
-    return NextResponse.json({ error: "Invalid `offset` (>= 0)." }, { status: 400 });
+    return cors({ error: "Invalid `offset` (>= 0)." }, { status: 400 });
   }
 
   try {
-    // ── TODO: replace with your real data fetch (Prisma/SQL/etc.) ─────────────
+    // TODO: replace this stub with your real DB call (Prisma/SQL/etc.)
+    // Example expected shape:
     // const { total, brands } = await getBrandsForCountry({ cc, q, limit, offset });
 
-    // Temporary placeholder so route works:
     const total = 0;
-    const brands: string[] = [];
+    const brands: { id: string; name: string }[] = [];
 
-    return NextResponse.json({ cc, query: q, total, brands }, { status: 200 });
+    return cors({ cc, query: q, total, brands }, { status: 200 });
   } catch (err) {
-    console.error("brands route error:", err);
-    return NextResponse.json({ error: "Failed to fetch brands." }, { status: 500 });
+    console.error("GET /brands error:", err);
+    return cors({ error: "Failed to fetch brands." }, { status: 500 });
   }
 }
