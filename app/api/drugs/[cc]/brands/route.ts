@@ -1,5 +1,5 @@
 // app/api/drugs/[cc]/brands/route.ts
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 /** Force dynamic so this route never gets statically optimized. */
 export const dynamic = "force-dynamic";
@@ -25,42 +25,34 @@ export async function OPTIONS() {
  * NOTE: The second arg MUST be typed inline as { params: { cc: string } }
  * for Next.js App Router / Vercel to recognise it.
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { cc: string } }
-) {
+export async function GET(req: Request, context: { params: any }) {
+  const { params } = context;
+  const cc = (params?.cc || "").toLowerCase();
+
   const url = new URL(req.url);
-
   const q = (url.searchParams.get("q") || "").trim();
-  const limitRaw = url.searchParams.get("limit") || "20";
-  const offsetRaw = url.searchParams.get("offset") || "0";
+  const limit = Number(url.searchParams.get("limit") || "20");
+  const offset = Number(url.searchParams.get("offset") || "0");
 
-  const limit = Number(limitRaw);
-  const offset = Number(offsetRaw);
-  const cc = (params?.cc || "").trim().toLowerCase();
-
-  // Basic validation
+  // Validation
   if (!cc || cc.length < 2 || cc.length > 3) {
-    return cors({ error: "Missing or invalid path param `cc` (2–3 letters)." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing or invalid country code `cc` path param." },
+      { status: 400 }
+    );
   }
+
   if (Number.isNaN(limit) || limit < 0 || limit > 200) {
-    return cors({ error: "Invalid `limit` (0–200)." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid `limit` (0–200)." }, { status: 400 });
   }
+
   if (Number.isNaN(offset) || offset < 0) {
-    return cors({ error: "Invalid `offset` (>= 0)." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid `offset` (>= 0)." }, { status: 400 });
   }
 
-  try {
-    // TODO: replace this stub with your real DB call (Prisma/SQL/etc.)
-    // Example expected shape:
-    // const { total, brands } = await getBrandsForCountry({ cc, q, limit, offset });
-
-    const total = 0;
-    const brands: { id: string; name: string }[] = [];
-
-    return cors({ cc, query: q, total, brands }, { status: 200 });
-  } catch (err) {
-    console.error("GET /brands error:", err);
-    return cors({ error: "Failed to fetch brands." }, { status: 500 });
-  }
+  // Placeholder response
+  return NextResponse.json(
+    { cc, query: q, total: 0, brands: [] },
+    { status: 200 }
+  );
 }
