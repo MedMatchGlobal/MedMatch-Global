@@ -2,22 +2,7 @@
 import { NextResponse } from "next/server";
 
 /**
- * Optional: make this "edge" if you want
- * export const runtime = "edge";
- */
-
-type Context = { params: { cc: string } };
-
-function badRequest(message: string) {
-  return NextResponse.json({ error: message }, { status: 400 });
-}
-
-function ok<T>(data: T) {
-  return NextResponse.json(data, { status: 200 });
-}
-
-/**
- * CORS / preflight
+ * Preflight / CORS (optional but harmless)
  */
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -33,16 +18,12 @@ export async function OPTIONS() {
 
 /**
  * GET /api/drugs/[cc]/brands?q=...&limit=20&offset=0
- *
- * Responds with:
- * {
- *   cc: "uk",
- *   query: "para",
- *   total: 0,
- *   brands: []
- * }
+ * Second arg **must** be typed inline as { params: { ... } } — no aliases.
  */
-export async function GET(req: Request, { params }: Context) {
+export async function GET(
+  req: Request,
+  { params }: { params: { cc: string } }
+) {
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") || "").trim();
   const limit = Number(url.searchParams.get("limit") || "20");
@@ -50,47 +31,31 @@ export async function GET(req: Request, { params }: Context) {
 
   const cc = (params?.cc || "").toLowerCase();
 
+  // basic validation
   if (!cc || cc.length < 2 || cc.length > 3) {
-    return badRequest("Missing or invalid country code `cc` path param.");
+    return NextResponse.json(
+      { error: "Missing or invalid country code `cc` path param." },
+      { status: 400 }
+    );
   }
   if (Number.isNaN(limit) || limit < 0 || limit > 200) {
-    return badRequest("Invalid `limit` (0–200).");
+    return NextResponse.json({ error: "Invalid `limit` (0–200)." }, { status: 400 });
   }
   if (Number.isNaN(offset) || offset < 0) {
-    return badRequest("Invalid `offset` (>= 0).");
+    return NextResponse.json({ error: "Invalid `offset` (>= 0)." }, { status: 400 });
   }
 
   try {
-    /**
-     * ── Plug your real data source here ────────────────────────────────────────
-     * If you already have Prisma / DB helpers, call them and return:
-     *   { cc, query: q, total, brands }
-     *
-     * Example shape (keep this shape stable for the UI):
-     *   const { total, brands } = await getBrandsForCountry({ cc, q, limit, offset });
-     */
+    // ── TODO: replace with your real data fetch (Prisma/SQL/etc.) ─────────────
+    // const { total, brands } = await getBrandsForCountry({ cc, q, limit, offset });
 
-    // TEMP placeholder so the route compiles & works immediately:
+    // Temporary placeholder so route works:
     const total = 0;
     const brands: string[] = [];
 
-    // If you want a quick in-memory demo while wiring up real data, uncomment:
-    // const demo: Record<string, string[]> = {
-    //   uk: ["Paracetamol", "Panadol", "Calpol", "Tylenol (US import)", "Anadin"],
-    //   us: ["Acetaminophen", "Tylenol", "Excedrin", "Midol", "FeverAll"],
-    // };
-    // const all = (demo[cc] || []).filter((n) =>
-    //   q ? n.toLowerCase().includes(q.toLowerCase()) : true
-    // );
-    // const total = all.length;
-    // const brands = all.slice(offset, offset + limit);
-
-    return ok({ cc, query: q, total, brands });
+    return NextResponse.json({ cc, query: q, total, brands }, { status: 200 });
   } catch (err) {
     console.error("brands route error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch brands." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch brands." }, { status: 500 });
   }
 }
