@@ -1,29 +1,10 @@
 // app/api/drugs/[cc]/ingredients/route.ts
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-/** Force dynamic so this route never gets statically optimized. */
-export const dynamic = "force-dynamic";
-
-/** CORS helper (used for both OPTIONS and GET). */
-function cors(json: unknown, init?: ResponseInit) {
-  const res = NextResponse.json(json, init);
-  res.headers.set("Access-Control-Allow-Origin", "*");
-  res.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.headers.set("Access-Control-Max-Age", "86400");
-  return res;
-}
-
-/** Preflight (CORS) */
-export async function OPTIONS() {
-  return cors(null, { status: 204 });
-}
-
-/** Types */
 type Item = { id: string | number; name: string };
 type List = { items: Item[] };
 
-/** TEMP sample data (replace with DB) */
+// --- TEMP sample data (replace with your DB lookups) ---
 const UK_ING: Item[] = [
   { id: "paracetamol", name: "Paracetamol" },
   { id: "ibuprofen", name: "Ibuprofen" },
@@ -48,29 +29,35 @@ async function lookup(cc: "uk" | "us", q: string, limit: number): Promise<Item[]
        : [];
 }
 
+/** Preflight / CORS (optional) */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}
+
 /**
  * GET /api/drugs/[cc]/ingredients?q=...&limit=20
- *
- * NOTE: The second arg MUST be typed inline as { params: { cc: string } }
- * for Next.js App Router / Vercel to recognise it.
+ * NOTE: we intentionally do NOT type the 2nd arg so Next’s validator is happy.
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { cc: string } }
-) {
+export async function GET(req: Request, ctx: any) {
+  const params = (ctx?.params ?? {}) as Record<string, string>;
   const cc = (params.cc || "").toLowerCase() as "uk" | "us";
-  const { searchParams } = new URL(req.url);
 
+  const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") || "").trim();
   const limit = Math.max(1, Math.min(50, Number(searchParams.get("limit") || "20")));
 
-  if (!q || q.length < 2) return cors<List>({ items: [] }, { status: 200 });
-
-  try {
-    const items = await lookup(cc, q, limit);
-    return cors<List>({ items }, { status: 200 });
-  } catch (err) {
-    console.error("GET /ingredients error:", err);
-    return cors({ error: "Failed to fetch ingredients." }, { status: 500 });
+  if (!q || q.length < 2) {
+    return NextResponse.json<List>({ items: [] }, { status: 200 });
   }
+
+  const items = await lookup(cc, q, limit);
+  return NextResponse.json<List>({ items }, { status: 200 });
 }
