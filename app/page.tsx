@@ -6,7 +6,7 @@ import { marked } from 'marked';
 import { useEffect, useMemo, useState } from 'react';
 
 import { LanguageProvider, useLanguage } from './LanguageProvider';
-import { DrugComboBox } from './components/DrugComboBox';
+import DrugComboBox from './components/DrugComboBox'; // ← default import (fixes Vercel error)
 import LanguageButton from './components/LanguageButton';
 import SymptomTriage from './components/SymptomTriage';
 import { groupedConditions } from './constants/conditions';
