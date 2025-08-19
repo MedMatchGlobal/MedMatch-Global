@@ -1,24 +1,149 @@
 // app/page.tsx
 'use client';
 
-import { DrugComboBox } from '@/components/DrugComboBox';
-import { useEffect, useMemo, useState } from 'react';
-import SymptomTriage from './components/SymptomTriage';
-import { groupedConditions } from './constants/conditions';
-
-// === NEW: language utilities (no UI refactor) ===
-import LanguageButton from './components/LanguageButton';
-import { LanguageProvider, useLanguage } from './LanguageProvider';
-import { translateClient } from './lib/translateClient';
-
-// === NEW: markdown rendering ===
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
+import { useEffect, useMemo, useState } from 'react';
 
-// Keep your Mode type as-is
+import { LanguageProvider, useLanguage } from './LanguageProvider';
+import { DrugComboBox } from './components/DrugComboBox';
+import LanguageButton from './components/LanguageButton';
+import SymptomTriage from './components/SymptomTriage';
+import { groupedConditions } from './constants/conditions';
+import { translateClient } from './lib/translateClient';
+
 type Mode = 'international' | 'condition' | 'generic' | 'triage' | 'leaflet' | 'pets';
+type CountryOpt = { code: string; name: string };
 
-// Wrap the page in the provider (so language choice persists & is available)
+const UI = {
+  en: {
+    btnIntl: 'International Medicine Search',
+    btnCond: 'Search by Condition',
+    btnGen: 'Search Generic',
+    btnTriage: 'Symptoms Triage',
+    btnLeaflet: 'Medicine Leaflet',
+    btnPets: 'Meds 4 Pets',
+    phHome: 'Please select your Home Country',
+    phMed: 'Please select/enter medicine name',
+    phDose: 'Enter dosage (optional)',
+    phTarget: 'Please select the Country to search',
+    searchIntl: 'Search International Equivalents',
+    searchCond: 'View Informational Guidance',
+    searchGen: 'Find Generics',
+    searchLeaflet: 'Fetch Medicine Leaflet',
+    searchPets: 'Search Pet Medicines',
+    noList: (c: string) =>
+      `⚠️ No full drug list available for ${c || 'this country'}. Please enter the drug name manually.`,
+    rx: 'Rx',
+    otc: 'OTC',
+  },
+  it: {
+    btnIntl: 'Ricerca internazionale',
+    btnCond: 'Cerca per condizione',
+    btnGen: 'Cerca generici',
+    btnTriage: 'Valutazione sintomi',
+    btnLeaflet: 'Foglio illustrativo',
+    btnPets: 'Farmaci per animali',
+    phHome: 'Seleziona il tuo Paese di residenza',
+    phMed: 'Seleziona/inserisci il nome del medicinale',
+    phDose: 'Inserisci dosaggio (opzionale)',
+    phTarget: 'Seleziona il Paese di destinazione',
+    searchIntl: 'Cerca equivalenti internazionali',
+    searchCond: 'Visualizza guida informativa',
+    searchGen: 'Trova generici',
+    searchLeaflet: 'Recupera foglio illustrativo',
+    searchPets: 'Cerca farmaci veterinari',
+    noList: (c: string) =>
+      `⚠️ Nessun elenco completo per ${c || 'questo Paese'}. Inserisci manualmente il nome del farmaco.`,
+    rx: 'Su Ricetta',
+    otc: 'Da Banco',
+  },
+  fr: {
+    btnIntl: 'Recherche internationale',
+    btnCond: 'Rechercher par affection',
+    btnGen: 'Recherche des génériques',
+    btnTriage: 'Évaluation des symptômes',
+    btnLeaflet: 'Notice du médicament',
+    btnPets: 'Médicaments vétérinaires',
+    phHome: "Sélectionnez votre pays d’origine",
+    phMed: 'Sélectionnez/saisissez le nom du médicament',
+    phDose: 'Saisir posologie (facultatif)',
+    phTarget: 'Sélectionnez le pays de recherche',
+    searchIntl: 'Rechercher des équivalents internationaux',
+    searchCond: 'Afficher les informations',
+    searchGen: 'Trouver des génériques',
+    searchLeaflet: 'Afficher la notice',
+    searchPets: 'Rechercher médicaments vétérinaires',
+    noList: (c: string) =>
+      `⚠️ Pas de liste complète pour ${c || 'ce pays'}. Saisissez le nom du médicament manuellement.`,
+    rx: 'Sur ordonnance',
+    otc: 'Sans ordonnance',
+  },
+  de: {
+    btnIntl: 'Internationale Arzneisuche',
+    btnCond: 'Suche nach Erkrankung',
+    btnGen: 'Generika suchen',
+    btnTriage: 'Symptombewertung',
+    btnLeaflet: 'Packungsbeilage',
+    btnPets: 'Tiermedikamente',
+    phHome: 'Bitte wählen Sie Ihr Heimatland',
+    phMed: 'Arzneimittelnamen wählen/eingeben',
+    phDose: 'Dosierung eingeben (optional)',
+    phTarget: 'Zielland auswählen',
+    searchIntl: 'Äquivalente suchen',
+    searchCond: 'Informationen anzeigen',
+    searchGen: 'Generika finden',
+    searchLeaflet: 'Packungsbeilage abrufen',
+    searchPets: 'Tiermedikamente suchen',
+    noList: (c: string) =>
+      `⚠️ Keine vollständige Liste für ${c || 'dieses Land'}. Arzneiname bitte manuell eingeben.`,
+    rx: 'Verschreibungspflichtig',
+    otc: 'Ohne Rezept',
+  },
+  es: {
+    btnIntl: 'Búsqueda internacional',
+    btnCond: 'Buscar por condición',
+    btnGen: 'Buscar genéricos',
+    btnTriage: 'Evaluación de síntomas',
+    btnLeaflet: 'Prospecto del medicamento',
+    btnPets: 'Medicamentos para mascotas',
+    phHome: 'Seleccione su país de origen',
+    phMed: 'Seleccione/escriba el nombre del medicamento',
+    phDose: 'Introduzca la dosis (opcional)',
+    phTarget: 'Seleccione el país de destino',
+    searchIntl: 'Buscar equivalentes internacionales',
+    searchCond: 'Ver guía informativa',
+    searchGen: 'Encontrar genéricos',
+    searchLeaflet: 'Obtener prospecto',
+    searchPets: 'Buscar medicamentos para mascotas',
+    noList: (c: string) =>
+      `⚠️ No hay lista completa para ${c || 'este país'}. Escriba el nombre del medicamento manualmente.`,
+    rx: 'Con receta',
+    otc: 'Sin receta',
+  },
+  pt: {
+    btnIntl: 'Pesquisa internacional',
+    btnCond: 'Pesquisar por condição',
+    btnGen: 'Pesquisar genéricos',
+    btnTriage: 'Avaliação de sintomas',
+    btnLeaflet: 'Folheto do medicamento',
+    btnPets: 'Medicamentos veterinários',
+    phHome: 'Selecione o seu país de origem',
+    phMed: 'Selecione/digite o nome do medicamento',
+    phDose: 'Informe a dosagem (opcional)',
+    phTarget: 'Selecione o país de destino',
+    searchIntl: 'Pesquisar equivalentes internacionais',
+    searchCond: 'Ver guia informativa',
+    searchGen: 'Encontrar genéricos',
+    searchLeaflet: 'Obter folheto',
+    searchPets: 'Pesquisar medicamentos veterinários',
+    noList: (c: string) =>
+      `⚠️ Não há lista completa para ${c || 'este país'}. Digite o nome do medicamento manualmente.`,
+    rx: 'Com receita',
+    otc: 'Sem receita',
+  },
+} as const;
+
 export default function PageWrapper() {
   return (
     <LanguageProvider>
@@ -28,22 +153,20 @@ export default function PageWrapper() {
 }
 
 function Home() {
-  const { lang } = useLanguage(); // we only need the code to translate the result
+  const { lang } = useLanguage();
+  const ui = UI[lang as keyof typeof UI] ?? UI.en;
 
-  const [countries, setCountries] = useState<string[]>([]);
+  const [countries, setCountries] = useState<CountryOpt[]>([]);
   const [ukDrugs, setUkDrugs] = useState<string[]>([]);
   const [usDrugs, setUsDrugs] = useState<string[]>([]);
 
-  // Shared form state
-  const [originCountry, setOriginCountry] = useState('');
-  const [targetCountry, setTargetCountry] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState(''); // legacy (not used by new modes)
+  const [originCode, setOriginCode] = useState('');
+  const [targetCode, setTargetCode] = useState('');
   const [selectedDrug, setSelectedDrug] = useState('');
   const [selectedDosage, setSelectedDosage] = useState('');
   const [selectedCondition, setSelectedCondition] = useState('');
   const [conditionDetails, setConditionDetails] = useState('');
   const [userNotes, setUserNotes] = useState('');
-
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
   const [showNoticeOrigin, setShowNoticeOrigin] = useState(false);
@@ -51,26 +174,27 @@ function Home() {
   const [mode, setMode] = useState<Mode>('international');
   const [visits, setVisits] = useState<number | null>(null);
 
-  const countryWithDatabase = ['United Kingdom', 'United States'];
+  const dbCountryCodes = ['GB', 'US'];
 
   useEffect(() => {
-    fetch('/api/options', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'countries' }),
-    })
-      .then((res) => res.json())
-      .then((data) => setCountries(data.options || []));
-  }, []);
+    (async () => {
+      const res = await fetch('/api/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'countries', lang }),
+      });
+      const data = await res.json();
+      setCountries((data?.options as CountryOpt[]) || []);
+    })();
+  }, [lang]);
 
   useEffect(() => {
     fetch('/api/drugs/uk')
-      .then((res) => res.json())
-      .then((data) => setUkDrugs(data.map((d: any) => d.name)));
-
+      .then((r) => r.json())
+      .then((d) => setUkDrugs(d.map((x: any) => x.name)));
     fetch('/api/drugs/us')
-      .then((res) => res.json())
-      .then((data) => setUsDrugs(data.map((d: any) => d.name)));
+      .then((r) => r.json())
+      .then((d) => setUsDrugs(d.map((x: any) => x.name)));
   }, []);
 
   useEffect(() => {
@@ -80,168 +204,214 @@ function Home() {
       .catch(() => setVisits(null));
   }, []);
 
-  const getDrugsForCountry = (country: string) => {
-    if (country === 'United Kingdom') return ukDrugs;
-    if (country === 'United States') return usDrugs;
-    return [];
-  };
+  const getDrugsFor = (code: string) =>
+    code === 'GB' ? ukDrugs : code === 'US' ? usDrugs : [];
 
-  // legacy
-  const handleCountryChange = (value: string) => {
-    setSelectedCountry(value);
-  };
+  useEffect(
+    () => setShowNoticeOrigin(!!originCode && !dbCountryCodes.includes(originCode)),
+    [originCode]
+  );
+  useEffect(
+    () => setShowNoticeTarget(!!targetCode && !dbCountryCodes.includes(targetCode)),
+    [targetCode]
+  );
 
-  useEffect(() => {
-    setShowNoticeOrigin(!!originCountry && !countryWithDatabase.includes(originCountry));
-  }, [originCountry]);
+  const englishRegion = useMemo(() => {
+    // @ts-ignore
+    return typeof Intl.DisplayNames !== 'undefined'
+      ? new Intl.DisplayNames(['en'], { type: 'region' })
+      : null;
+  }, []);
+  const codeToEnglish = (code: string) =>
+    (englishRegion?.of(code) as string) || code;
 
-  useEffect(() => {
-    setShowNoticeTarget(!!targetCountry && !countryWithDatabase.includes(targetCountry));
-  }, [targetCountry]);
+  // ---------- helpers ----------
 
-  // Blue gradient button (default sections)
-  const gradientBtnBlue = (active: boolean) =>
-    ({
-      padding: '0.5rem 1rem',
-      border: 'none',
-      borderRadius: '10px',
-      cursor: 'pointer',
-      color: active ? 'white' : '#0b74de',
-      background: active
-        ? 'linear-gradient(135deg, #0b74de 0%, #69a6ff 100%)'
-        : 'linear-gradient(135deg, #e6f0ff 0%, #f7fbff 100%)',
-      boxShadow: active ? '0 2px 10px rgba(11,116,222,0.25)' : 'none',
-      transition: 'transform 0.05s ease',
-    } as React.CSSProperties);
+  // Replace Rx/OTC tokens after translation
+  function localizeRxTokensMD(md: string) {
+    const rx = UI[lang as keyof typeof UI]?.rx ?? UI.en.rx;
+    const otc = UI[lang as keyof typeof UI]?.otc ?? UI.en.otc;
+    md = md.replace(/\[(?:OTC)\]/g, `[${otc}]`).replace(/\((?:OTC)\)/g, `(${otc})`);
+    md = md.replace(/\[(?:Rx)\]/g, `[${rx}]`).replace(/\((?:Rx)\)/g, `(${rx})`);
+    md = md.replace(/(^|\s)OTC(\s|$)/g, `$1${otc}$2`);
+    md = md.replace(/(^|\s)Rx(\s|$)/g, `$1${rx}$2`);
+    return md;
+  }
 
-  // Green gradient button (Meds 4 Pets)
-  const gradientBtnGreen = (active: boolean) =>
-    ({
-      padding: '0.5rem 1rem',
-      border: 'none',
-      borderRadius: '10px',
-      cursor: 'pointer',
-      color: active ? 'white' : '#0e7c3a',
-      background: active
-        ? 'linear-gradient(135deg, #0ea34a 0%, #5fd48b 100%)'
-        : 'linear-gradient(135deg, #e8f8ef 0%, #f6fffa 100%)',
-      boxShadow: active ? '0 2px 10px rgba(14,163,74,0.25)' : 'none',
-      transition: 'transform 0.05s ease',
-    } as React.CSSProperties);
+  // Preserve currency & percent tokens across translation
+  function protectMetrics(md: string) {
+    const map: string[] = [];
+    const placeholder = (i: number) => `⟦M${i}⟧`;
 
-  // Red gradient button (Symptoms Triage)
-  const gradientBtnRed = (active: boolean) =>
-    ({
-      padding: '0.5rem 1rem',
-      border: 'none',
-      borderRadius: '10px',
-      cursor: 'pointer',
-      color: active ? 'white' : '#b30000',
-      background: active
-        ? 'linear-gradient(135deg, #c61a1a 0%, #ff7a7a 100%)'
-        : 'linear-gradient(135deg, #ffe9e9 0%, #fff7f7 100%)',
-      boxShadow: active ? '0 2px 10px rgba(198,26,26,0.25)' : 'none',
-      transition: 'transform 0.05s ease',
-    } as React.CSSProperties);
+    const patterns = [
+      /[$€£]\s?\d{1,4}(?:[.,]\d{2})?/g, // currency
+      /\b\d{1,3}\s?%\b/g, // percent
+      /\(≈\s*[$€£]?\s?\d{1,4}(?:[.,]\d{2})?\)/g, // (≈ €x.xx)
+      /\bn\/a\b/gi, // n/a
+    ];
 
-  const clearAll = () => {
-    setResult('');
-    setSelectedDrug('');
-    setSelectedDosage('');
-    setOriginCountry('');
-    setTargetCountry('');
-    setSelectedCondition('');
-    setConditionDetails('');
-    setUserNotes('');
+    let text = md;
+    patterns.forEach((re) => {
+      text = text.replace(re, (m) => {
+        const id = map.push(m) - 1;
+        return placeholder(id);
+      });
+    });
+
+    return {
+      text,
+      restore(translated: string) {
+        let out = translated;
+        map.forEach((orig, i) => {
+          out = out.replace(new RegExp(placeholder(i), 'g'), orig);
+        });
+        return out;
+      },
+    };
+  }
+
+  // Ensure the first bullet in Composition/Excipients breaks to a new line
+  function improveCompositionLayout(html: string) {
+    const compKeys =
+      /(Active ingredient(?:s)?(?:\s*\(with strengths\))?|Principio|Sostanza|Ingr[ée]dient|Ingrediente|Wirkstoff|Excipients?|Eccipienti|Excipientes?|Hilfsstoffe|Formulation|Formulazione|Formulación|Formule|Darreichungsform)/i;
+
+    return html.replace(/<li>([\s\S]*?)<\/li>/gi, (m, inner) => {
+      if (compKeys.test(inner) && inner.includes('•') && !/br\s*\/?>\s*•/i.test(inner)) {
+        // break only the FIRST bullet
+        const idx = inner.indexOf('•');
+        return `<li>${inner.slice(0, idx)}<br/>•${inner.slice(idx + 1)}</li>`;
+      }
+      return m;
+    });
+  }
+
+  // Color only the warning part (post-colon) in red, across languages
+  function wrapWarningsPrecisely(html: string) {
+    // stems that suggest a warning/imperative guidance
+    const stems = [
+      // IT
+      'controindicat', 'sconsigliat', 'evitar', 'non usare', 'non somministrare',
+      'non raccomandat', 'uso cautel', 'cautel', 'attenzion', 'rischio di dipenden',
+      'monitor', 'monitorar', 'monitorare',
+      // EN
+      'contraindicat', 'not recommended', 'avoid', 'do not use', 'use with caution',
+      'caution', 'warning', 'risk', 'monitor',
+      // FR
+      'contre', 'déconseill', 'éviter', 'ne pas utiliser', 'prudence', 'risque',
+      'surveill', // surveiller / surveillez
+      // DE
+      'kontraindik', 'nicht empfohlen', 'vermeiden', 'nicht verwenden', 'vorsicht',
+      'überwach', // überwachen
+      // ES/PT
+      'contraindicado', 'no recomendado', 'no usar', 'evitar', 'precaución', 'cautela',
+      'riesgo', 'risco', 'monitoriz', // monitorizar/monitorização
+    ];
+    const union =
+      '(?:' +
+      stems.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') +
+      ')';
+
+    return html
+      // list items
+      .replace(/<li>([\s\S]*?)<\/li>/gi, (_m, inner) => {
+        const colon = inner.indexOf(':');
+        if (colon === -1) return `<li>${inner}</li>`;
+        const before = inner.slice(0, colon + 1);
+        const after = inner.slice(colon + 1);
+        const isWarn = new RegExp(union, 'iu').test(after);
+        return isWarn
+          ? `<li>${before}<span class="warn">${after}</span></li>`
+          : `<li>${before}${after}</li>`;
+      })
+      // paragraphs
+      .replace(/<p>([\s\S]*?)<\/p>/gi, (_m, inner) => {
+        const colon = inner.indexOf(':');
+        if (colon === -1) return `<p>${inner}</p>`;
+        const before = inner.slice(0, colon + 1);
+        const after = inner.slice(colon + 1);
+        const isWarn = new RegExp(union, 'iu').test(after);
+        return isWarn
+          ? `<p>${before}<span class="warn">${after}</span></p>`
+          : `<p>${before}${after}</p>`;
+      });
+  }
+
+  // Un-bold metrics only inside list items
+  function normalizeMetrics(html: string) {
+    const fix = (s: string) =>
+      s
+        .replace(/<strong>(\s*\d{1,3}%\s*)<\/strong>/gi, '$1')
+        .replace(/<strong>(\s*n\/a(?:\s*\(≈\s*n\/a\))?\s*)<\/strong>/gi, '$1')
+        .replace(/<strong>(\s*[€£$][^<)]*)<\/strong>/gi, '$1')
+        .replace(/<strong>(\s*\([^<)]*\)\s*)<\/strong>/gi, '$1')
+        .replace(/<strong>(\s*\[[^<\]]+\]\s*)<\/strong>/gi, '$1');
+
+    return html.replace(/<li>[\s\S]*?<\/li>/gi, (m) => fix(m));
+  }
+
+  // ---------- search ----------
+
+  const actionDisabled = () => {
+    if (loading) return true;
+    if (mode === 'triage') return true;
+    if (mode === 'international') return !(originCode && selectedDrug && targetCode);
+    if (mode === 'condition') return !(selectedCondition && targetCode);
+    if (mode === 'generic') return !(selectedDrug && targetCode);
+    if (mode === 'leaflet') return !(selectedDrug && targetCode);
+    if (mode === 'pets') return !(originCode && selectedDrug && targetCode);
+    return true;
   };
 
   const handleMode = (m: Mode) => {
     setMode(m);
-    clearAll();
+    setResult('');
+    setSelectedDrug('');
+    setSelectedDosage('');
+    setOriginCode('');
+    setTargetCode('');
+    setSelectedCondition('');
+    setConditionDetails('');
+    setUserNotes('');
   };
 
   const handleSearch = async () => {
     setLoading(true);
     setResult('Searching...');
 
-    const dosagePart = selectedDosage ? ` at a dosage of ${selectedDosage}` : '';
+    const dose = selectedDosage ? ` at a dosage of ${selectedDosage}` : '';
+    const originCountry = originCode ? codeToEnglish(originCode) : '';
+    const targetCountry = targetCode ? codeToEnglish(targetCode) : '';
 
     let query = '';
-
     if (mode === 'international') {
       query =
-        `A person living in ${originCountry} is looking for the equivalent name of the drug '${selectedDrug}'` +
-        `${dosagePart} in ${targetCountry}. ` +
-        `Based on the API and additional components present in the '${selectedDrug}', ` +
-        `please provide a list of the top 5 equivalent drugs – either branded or generic – in the ${targetCountry} ` +
-        `sorting them by percentage of equivalence starting with those with the highest percentage along with the ` +
-        `respective average prices in the currency of the ${targetCountry} but also converted to the currency of the ${originCountry}. ` +
-        `In addition to that, provide a comprehensive overview of the drug’s typical naming variations, classification, ` +
-        `use cases, potential side effects, and any known regulatory differences between the two countries. ` +
-        `Finally, provide a summary of no more than 75 words that is purely language-based, informative, and publicly available. ` +
-        `Don’t forget to label each section clearly.`;
+        `A person living in ${originCountry} is looking for the equivalent name of the drug '${selectedDrug}'${dose} in ${targetCountry}. ` +
+        `Return the top 5 equivalents (brand or generic) in ${targetCountry}, sorted by % equivalence, with prices in local currency and converted to ${originCountry}. ` +
+        `Include: Prescription status in origin country; Drug Overview (naming variations, classification, use cases, side effects, regulatory differences); ` +
+        `Exact Composition & Excipients for origin and for each equivalent (active ingredients with strengths, formulation, excipients — write “Not publicly listed” if unknown). ` +
+        `Then: Why not 100% compatible (per equivalent); Interactions & Warnings (≤30 words each, imperative, safety-first); ` +
+        `Special Populations & Contraindications (≤30 words each, imperative); Summary (≤75 words). Use clear section titles.`;
+    } else if (mode === 'generic') {
+      const d = selectedDosage ? ` at the dosage of ${selectedDosage}` : '';
+      query =
+        `List the top 10 generics fully equivalent to '${selectedDrug}'${d} in ${targetCountry}, with prices (local + converted). ` +
+        `For each: active ingredients with strengths, formulation, excipients; and note differences that affect equivalence. ` +
+        `Add “Prescription Status in ${originCountry}”, “Notes on Equivalence”, and “Composition & Excipients (per equivalent)”.`;
     } else if (mode === 'condition') {
       query =
-        `The user is currently located in ${targetCountry} and seeks information about the condition '${selectedCondition}'. ` +
-        `They have provided the following context: '${conditionDetails}' and mentioned these allergies or pathologies: '${userNotes}'. ` +
-        `Please return an extensive, educational, and AI-generated overview of the condition, including common symptoms, possible causes, ` +
-        `typical treatments, and drug classes used globally — avoiding any clinical advice, diagnosis, or region-specific prescribing rules.`;
-    } else if (mode === 'generic') {
-      const dosePhrase = selectedDosage ? ` at the dosage of ${selectedDosage}` : '';
-      query =
-        `Please provide a list of the top 10 generic medicines that are fully equivalent to '${selectedDrug}'${dosePhrase} in ${targetCountry} and are also sold in ${targetCountry}. ` +
-        (selectedDosage
-          ? `Please also mention the current price the ${selectedDrug}${dosePhrase} is sold at. `
-          : `Please also mention the current price the ${selectedDrug} is sold at (use the most common/typical dosage if required). `) +
-        `Please recommend the generic drug that is closest to 100% equivalence and add, next to each suggested generic product, the average price it is currently sold at. Finally, if the drug is not 100% equivalent to the one indicated, please mention where the differences are ensuring to highlight if these differences are in the main API or in the other ingredients and/or components. Therefore, should these raise concerns in terms of allergy, please mention that if a person is allergic to that specific ingredients should seek medical help before using that medicine.`;
+        `User in ${targetCountry} seeks information about '${selectedCondition}'. Context: '${conditionDetails}'. Allergies/pathologies: '${userNotes}'. ` +
+        `Return an educational overview only (symptoms, causes, non-drug care, general drug classes, red flags). No diagnosis.`;
     } else if (mode === 'leaflet') {
-      const doseInLeaflet = selectedDosage ? `, at the ${selectedDosage}` : '';
+      const d = selectedDosage ? `, at the ${selectedDosage}` : '';
       query =
-        `Please search the web and seek the Patient Information Leaflet of the ${selectedDrug}${doseInLeaflet} in ${targetCountry}. ` +
-        `If the Patient Information Leaflet is not fully available, please gather and list the following in full:\n` +
-        `- What [Medicine Name] is and what it is used for\n` +
-        `  • Explains the active ingredient(s)\n` +
-        `  • States what the medicine treats or prevents\n` +
-        `  • Mentions if it’s for adults, children, or special patient groups\n` +
-        `- What you need to know before you take [Medicine Name]\n` +
-        `  • Do not take (contraindications)\n` +
-        `  • Warnings and precautions (e.g., health conditions, allergies, interactions)\n` +
-        `  • Other medicines and [Medicine Name] (drug interactions)\n` +
-        `  • Pregnancy, breastfeeding, and fertility advice\n` +
-        `  • Driving and using machines\n` +
-        `  • Important information about ingredients (e.g., lactose, sodium content)\n` +
-        `- How to take [Medicine Name]\n` +
-        `  • Dosage instructions for different ages or conditions\n` +
-        `  • How and when to take it (with/without food, water, etc.)\n` +
-        `  • What to do if you miss a dose or take too much\n` +
-        `  • Duration of treatment\n` +
-        `- Possible side effects\n` +
-        `  • Very common, common, uncommon, rare, and very rare side effects\n` +
-        `  • Signs of serious allergic reactions\n` +
-        `  • Guidance on what to do if side effects occur\n` +
-        `- How to store [Medicine Name]\n` +
-        `  • Storage conditions (temperature, light, moisture)\n` +
-        `  • Keep out of reach of children\n` +
-        `  • Shelf life and expiry date information\n` +
-        `- Contents of the pack and other information\n` +
-        `  • Full list of active and inactive ingredients\n` +
-        `  • Description of the medicine (tablet colour, shape, markings)\n` +
-        `  • Name and address of the manufacturer and marketing authorisation holder`;
+        `Patient Information Leaflet for ${selectedDrug}${d} in ${targetCountry}. If not available, compile contents per standard PIL (uses, warnings, interactions, pregnancy, driving, dosage, side effects, storage, exact ingredients).`;
     } else if (mode === 'pets') {
       query =
-        `A person living in ${originCountry} is looking for the equivalent name of the drug '${selectedDrug}'` +
-        `${dosagePart} in ${targetCountry} and exclusively for animal usage. ` +
-        `Based on the API and additional components present in the '${selectedDrug}', provide a list of the top 5 equivalent drugs — ` +
-        `either branded or generic — exclusively for animal usage in the ${targetCountry}, sorted by percentage of equivalence with average prices in the local currency and converted to the currency of ${originCountry}. ` +
-        `Also provide naming variations, classification, use cases, potential side effects, and any known regulatory differences between the two countries, plus a ≤50-word summary.`;
-    } else {
-      // triage handled by its own component
-      setLoading(false);
-      return;
+        `Veterinary equivalents for '${selectedDrug}'${dose}. List top 5 in ${targetCountry} with prices (local + converted), and include a safety summary.`;
     }
 
     try {
-      const response = await fetch('/api/ai-search', {
+      const res = await fetch('/api/ai-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -255,39 +425,47 @@ function Home() {
           conditionDetails,
           userNotes,
           lang,
-          debug: true, // toggle for one run if you want to see prompts in the server log
         }),
       });
 
-      const data = await response.json();
-      if (data?._debug) console.log('DEBUG system/user', data._debug);
+      let md = ((await res.json())?.result ?? '').trim();
 
-      // Show exactly what the server returned; translate only as a fallback.
-      const serverText = (data?.result ?? '').trim();
-      let finalText = serverText;
+      // Preserve metrics before translation, then restore afterward
+      const keeper = protectMetrics(md);
 
-      if (lang !== 'en' && serverText) {
+      if (lang !== 'en' && md) {
         try {
-          const looksItalian = /[àèéìòù]|(zione|mente|gli|che|per|con)/i.test(serverText);
-          const looksFrench = /[àâçèéêëîïôùûüÿœ]|(tion|est|avec|pour)/i.test(serverText);
-          const looksGerman = /(die|der|das|und|über|ä|ö|ü|ß)/i.test(serverText);
-          const looksSpanish = /(ción|que|con|para|de|á|é|í|ó|ú|ñ)/i.test(serverText);
-          const looksPortuguese = /(ção|que|com|para|de|á|é|í|ó|ú|ã|õ|ç)/i.test(serverText);
+          // only translate if it doesn't already look like the target language
+          const looksItalian = /[àèéìòù]|(zione|mente|gli|che|per|con)/i.test(md);
+          const looksFrench = /[àâçèéêëîïôùûüÿœ]|(tion|est|avec|pour)/i.test(md);
+          const looksGerman = /(die|der|das|und|über|ä|ö|ü|ß)/i.test(md);
+          const looksSpanish = /(ción|que|con|para|de|á|é|í|ó|ú|ñ)/i.test(md);
+          const looksPortuguese = /(ção|que|com|para|de|á|é|í|ó|ú|ã|õ|ç)/i.test(md);
 
-          const alreadyLang =
+          const already =
             (lang === 'it' && looksItalian) ||
             (lang === 'fr' && looksFrench) ||
             (lang === 'de' && looksGerman) ||
             (lang === 'es' && looksSpanish) ||
             (lang === 'pt' && looksPortuguese);
 
-          finalText = alreadyLang ? serverText : await translateClient(serverText, lang);
+          if (!already) {
+            md = await translateClient(keeper.text, lang);
+          } else {
+            md = keeper.text; // nothing to translate
+          }
         } catch {
-          finalText = serverText; // fail-open
+          md = keeper.text;
         }
+      } else {
+        md = keeper.text;
       }
 
-      setResult(finalText || 'No result found.');
+      // Restore preserved metrics and localize Rx/OTC labels
+      md = keeper.restore(md);
+      md = localizeRxTokensMD(md);
+
+      setResult(md || 'No result found.');
     } catch {
       setResult('An error occurred.');
     } finally {
@@ -295,63 +473,331 @@ function Home() {
     }
   };
 
-  const renderInputs = () => {
+  const html = useMemo(() => {
+    try {
+      let parsed = marked.parse(result || '') as string;
+      parsed = wrapWarningsPrecisely(parsed);     // color only post-colon warning text
+      parsed = improveCompositionLayout(parsed);  // force bullet to a new line in composition/excipients
+      parsed = normalizeMetrics(parsed);          // remove bolding from metrics-only
+      return DOMPurify.sanitize(parsed);
+    } catch {
+      return '';
+    }
+  }, [result]);
+
+  // ---------- UI ----------
+
+  const btnBlue = (active: boolean): React.CSSProperties => ({
+    padding: '0.5rem 1rem',
+    borderRadius: 10,
+    border: 'none',
+    cursor: 'pointer',
+    color: active ? '#fff' : '#0b74de',
+    background: active
+      ? 'linear-gradient(135deg, #0b74de 0%, #69a6ff 100%)'
+      : 'linear-gradient(135deg, #e6f0ff 0%, #f7fbff 100%)',
+    boxShadow: active ? '0 2px 10px rgba(11,116,222,0.25)' : 'none',
+  });
+
+  const btnGreen = (active: boolean): React.CSSProperties => ({
+    padding: '0.5rem 1rem',
+    borderRadius: 10,
+    border: 'none',
+    cursor: 'pointer',
+    color: active ? '#fff' : '#0e7c3a',
+    background: active
+      ? 'linear-gradient(135deg, #0ea34a 0%, #5fd48b 100%)'
+      : 'linear-gradient(135deg, #e8f8ef 0%, #f6fffa 100%)',
+    boxShadow: active ? '0 2px 10px rgba(14,163,74,0.25)' : 'none',
+  });
+
+  const btnRed = (active: boolean): React.CSSProperties => ({
+    padding: '0.5rem 1rem',
+    borderRadius: 10,
+    border: 'none',
+    cursor: 'pointer',
+    color: active ? '#fff' : '#b30000',
+    background: active
+      ? 'linear-gradient(135deg, #c61a1a 0%, #ff7a7a 100%)'
+      : 'linear-gradient(135deg, #ffe9e9 0%, #fff7f7 100%)',
+    boxShadow: active ? '0 2px 10px rgba(198,26,26,0.25)' : 'none',
+  });
+
+  const searchLabel =
+    mode === 'international'
+      ? ui.searchIntl
+      : mode === 'condition'
+      ? ui.searchCond
+      : mode === 'generic'
+      ? ui.searchGen
+      : mode === 'leaflet'
+      ? ui.searchLeaflet
+      : mode === 'pets'
+      ? ui.searchPets
+      : 'Search';
+
+  return (
+    <main style={{ maxWidth: 600, margin: 'auto', padding: '2rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          marginBottom: '1rem',
+        }}
+      >
+        <img
+          src="/logo.png"
+          alt="medicéa logo"
+          style={{ width: '100%', maxWidth: 600, height: 'auto', marginBottom: '2rem' }}
+        />
+
+        <p
+          style={{
+            fontFamily:
+              "'Caveat','Patrick Hand','Shadows Into Light','Comic Sans MS','Segoe UI',cursive",
+            fontSize: '0.95rem',
+            lineHeight: 1.55,
+            color: '#333',
+            textAlign: 'center',
+            letterSpacing: '0.3px',
+            margin: '0.6rem 0 0.9rem',
+            maxWidth: '58ch',
+          }}
+        >
+          Inspired by Panacea, the goddess of the universal cure,&nbsp;
+          <strong>
+            <span style={{ color: '#1E73BE' }}>medi</span>
+            <span style={{ color: '#008080' }}>céa</span>™
+          </strong>{' '}
+          is your passport to medicine anywhere in the world — connecting people to life-saving
+          treatments without borders is our mission.
+        </p>
+
+        <div style={{ marginBottom: '1.25rem' }}>
+          <LanguageButton />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            onClick={() => handleMode('international')}
+            style={btnBlue(mode === 'international')}
+          >
+            {ui.btnIntl}
+          </button>
+          <button onClick={() => handleMode('condition')} style={btnBlue(mode === 'condition')}>
+            {ui.btnCond}
+          </button>
+          <button onClick={() => handleMode('generic')} style={btnBlue(mode === 'generic')}>
+            {ui.btnGen}
+          </button>
+          <button onClick={() => handleMode('triage')} style={btnRed(mode === 'triage')}>
+            {ui.btnTriage}
+          </button>
+          <button onClick={() => handleMode('leaflet')} style={btnBlue(mode === 'leaflet')}>
+            {ui.btnLeaflet}
+          </button>
+          <button onClick={() => handleMode('pets')} style={btnGreen(mode === 'pets')}>
+            {ui.btnPets}
+          </button>
+        </div>
+      </div>
+
+      {/* Inputs */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {renderInputs()}
+
+        {mode !== 'triage' && (
+          <button
+            onClick={handleSearch}
+            disabled={actionDisabled()}
+            style={{
+              padding: '0.75rem',
+              background:
+                mode === 'pets'
+                  ? 'linear-gradient(135deg, #0ea34a 0%, #5fd48b 100%)'
+                  : 'linear-gradient(135deg, #0b74de 0%, #69a6ff 100%)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 10,
+              cursor: 'pointer',
+              boxShadow:
+                mode === 'pets'
+                  ? '0 2px 10px rgba(14,163,74,0.25)'
+                  : '0 2px 10px rgba(11,116,222,0.25)',
+            }}
+          >
+            {loading ? '…' : searchLabel}
+          </button>
+        )}
+
+        {mode !== 'triage' && (
+          <article className="ai-result" dangerouslySetInnerHTML={{ __html: html }} />
+        )}
+
+        {/* Disclaimer (full) */}
+        <div style={{ fontSize: '0.85rem', color: '#333', marginTop: '2rem' }}>
+          <p style={{ textAlign: 'justify' }}>
+            <strong style={{ color: '#cc0000', textDecoration: 'underline' }}>DISCLAIMER</strong>
+          </p>
+
+          <p style={{ textAlign: 'justify' }}>
+            <strong>
+              <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>céa</span>™ is a publicly accessible,
+              AI-assisted informational platform
+            </strong>{' '}
+            that facilitates cross-referencing of medication names and health conditions across
+            countries. It also offers an <strong>AI-powered Symptom Triage Assistant</strong> that
+            generates <u>purely educational outputs</u> based on public data. All content is for{' '}
+            <strong>informational purposes only</strong>.
+          </p>
+
+          <p style={{ textAlign: 'justify' }}>
+            <strong>
+              <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>céa</span>™ is not a medical device and does not
+              provide medical advice, diagnosis, or treatment.
+            </strong>{' '}
+            The symptom triage assistant is an AI experiment and{' '}
+            <strong>must not be used to guide health decisions or emergencies</strong>. Responses are
+            generated from large language models and are not reviewed by doctors or qualified
+            professionals.
+          </p>
+
+          <p style={{ textAlign: 'justify' }}>
+            Do not rely on this for any clinical, pharmaceutical, or legal decisions. By using this
+            platform, you accept that{' '}
+            <strong>
+              no liability is assumed by <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>céa</span>™ or its creators
+            </strong>
+            .
+          </p>
+
+          <p style={{ textAlign: 'justify' }}>
+            <strong>
+              <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>céa</span>™ does not collect personal medical data
+            </strong>{' '}
+            and does not tailor results to individual health histories. By using this service, you
+            acknowledge that{' '}
+            <strong>
+              no information provided constitutes medical, legal, or pharmaceutical advice
+            </strong>
+            , and that{' '}
+            <strong>
+              <span style={{ color: '#1E73BE' }}>medi</span>
+              <span style={{ color: '#008080' }}>céa</span>™ and its developers assume no liability
+              for actions taken based on its content
+            </strong>
+            .
+          </p>
+        </div>
+
+        {visits !== null && (
+          <p
+            style={{
+              textAlign: 'center',
+              fontSize: '0.8rem',
+              color: '#555',
+              marginTop: '1rem',
+            }}
+          >
+            ➤ Total site visits: {visits.toLocaleString()}
+          </p>
+        )}
+
+        <footer
+          style={{
+            textAlign: 'center',
+            fontSize: '0.8rem',
+            color: '#666',
+            marginTop: '2rem',
+            padding: '1rem',
+            borderTop: '1px solid #ddd',
+          }}
+        >
+          © {new Date().getFullYear()}{' '}
+          <strong>
+            <span style={{ color: '#1E73BE' }}>medi</span>
+            <span style={{ color: '#008080' }}>céa</span>™
+          </strong>{' '}
+          by GES Consultancy Ltd. All rights reserved.
+          <br />
+          <a
+            href="/terms"
+            style={{
+              color: '#0b74de',
+              textDecoration: 'underline',
+              marginTop: '0.5rem',
+              display: 'inline-block',
+            }}
+          >
+            Terms & Conditions
+          </a>
+        </footer>
+      </div>
+
+      <style jsx global>{`
+        .ai-result .warn { color: #c1121f; font-weight: 700; }
+      `}</style>
+    </main>
+  );
+
+  // ---------- Inputs per mode ----------
+  function renderInputs() {
     if (mode === 'triage') {
       return (
         <div
           style={{
-            borderRadius: '12px',
+            borderRadius: 12,
             padding: '1rem',
             background: 'linear-gradient(135deg, #ffe9e9 0%, #fff7f7 100%)',
             border: '1px solid #ffd1d1',
           }}
         >
-          <h3 style={{ textAlign: 'center', marginTop: 0 }}>💬 Symptoms Triage</h3>
-          <p style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.75rem', textAlign: 'center' }}>
-            Describe a symptom (e.g. <i>"My ear is sore"</i> or <i>"I twisted my ankle"</i>) and{' '}
-            <strong>
-              <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>cea</span>™
-            </strong>{' '}
-            will ask follow-ups to provide an AI-assisted educational summary.
-          </p>
+          <h3 style={{ textAlign: 'center', marginTop: 0 }}>💬 {ui.btnTriage}</h3>
           <SymptomTriage />
         </div>
       );
     }
 
+    const select = (value: string, set: (v: string) => void, ph: string) => (
+      <select
+        value={value}
+        onChange={(e) => set(e.target.value)}
+        style={{ width: '100%', padding: '0.5rem' }}
+      >
+        <option value="">{ph}</option>
+        {countries.map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+    );
+
     if (mode === 'international') {
       return (
         <>
-          <select
-            value={originCountry}
-            onChange={(e) => setOriginCountry(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem' }}
-          >
-            <option value="">Please select your Home Country</option>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
+          {select(originCode, setOriginCode, ui.phHome)}
           {showNoticeOrigin && (
             <div style={{ color: '#d9534f', fontSize: '0.95rem' }}>
-              ⚠️ No full drug list available for {originCountry}. Please enter the drug name manually.
+              {ui.noList(originCode)}
             </div>
           )}
 
-          {countryWithDatabase.includes(originCountry) ? (
+          {dbCountryCodes.includes(originCode) ? (
             <DrugComboBox
-              options={getDrugsForCountry(originCountry)}
+              options={getDrugsFor(originCode)}
               value={selectedDrug}
               onChange={setSelectedDrug}
             />
           ) : (
             <input
               type="text"
-              placeholder="Please select/enter medicine name"
+              placeholder={ui.phMed}
               value={selectedDrug}
               onChange={(e) => setSelectedDrug(e.target.value)}
               style={{ width: '100%', padding: '0.5rem' }}
@@ -360,24 +806,13 @@ function Home() {
 
           <input
             type="text"
-            placeholder="Enter dosage (optional)"
+            placeholder={ui.phDose}
             value={selectedDosage}
             onChange={(e) => setSelectedDosage(e.target.value)}
             style={{ width: '100%', padding: '0.5rem' }}
           />
 
-          <select
-            value={targetCountry}
-            onChange={(e) => setTargetCountry(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem' }}
-          >
-            <option value="">Please select the Country to search</option>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          {select(targetCode, setTargetCode, ui.phTarget)}
         </>
       );
     }
@@ -417,18 +852,7 @@ function Home() {
             style={{ width: '100%', padding: '0.5rem' }}
           />
 
-          <select
-            value={targetCountry}
-            onChange={(e) => setTargetCountry(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem' }}
-          >
-            <option value="">Country to search</option>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          {select(targetCode, setTargetCode, 'Country to search')}
         </>
       );
     }
@@ -436,29 +860,18 @@ function Home() {
     if (mode === 'generic') {
       return (
         <>
-          <select
-            value={targetCountry}
-            onChange={(e) => setTargetCountry(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem' }}
-          >
-            <option value="">Country to search</option>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          {select(targetCode, setTargetCode, ui.phTarget)}
 
-          {countryWithDatabase.includes(targetCountry) ? (
+          {dbCountryCodes.includes(targetCode) ? (
             <DrugComboBox
-              options={getDrugsForCountry(targetCountry)}
+              options={getDrugsFor(targetCode)}
               value={selectedDrug}
               onChange={setSelectedDrug}
             />
           ) : (
             <input
               type="text"
-              placeholder="Please enter the drug name"
+              placeholder={ui.phMed}
               value={selectedDrug}
               onChange={(e) => setSelectedDrug(e.target.value)}
               style={{ width: '100%', padding: '0.5rem' }}
@@ -467,7 +880,7 @@ function Home() {
 
           <input
             type="text"
-            placeholder="Enter dosage (optional)"
+            placeholder={ui.phDose}
             value={selectedDosage}
             onChange={(e) => setSelectedDosage(e.target.value)}
             style={{ width: '100%', padding: '0.5rem' }}
@@ -479,38 +892,25 @@ function Home() {
     if (mode === 'leaflet') {
       return (
         <>
-          <select
-            value={targetCountry}
-            onChange={(e) => setTargetCountry(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem' }}
-          >
-            <option value="">Country to search</option>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
-          {countryWithDatabase.includes(targetCountry) ? (
+          {select(targetCode, setTargetCode, ui.phTarget)}
+          {dbCountryCodes.includes(targetCode) ? (
             <DrugComboBox
-              options={getDrugsForCountry(targetCountry)}
+              options={getDrugsFor(targetCode)}
               value={selectedDrug}
               onChange={setSelectedDrug}
             />
           ) : (
             <input
               type="text"
-              placeholder="Please enter the drug name"
+              placeholder={ui.phMed}
               value={selectedDrug}
               onChange={(e) => setSelectedDrug(e.target.value)}
               style={{ width: '100%', padding: '0.5rem' }}
             />
           )}
-
           <input
             type="text"
-            placeholder="Enter dosage (optional)"
+            placeholder={ui.phDose}
             value={selectedDosage}
             onChange={(e) => setSelectedDosage(e.target.value)}
             style={{ width: '100%', padding: '0.5rem' }}
@@ -522,29 +922,16 @@ function Home() {
     if (mode === 'pets') {
       return (
         <>
-          <select
-            value={originCountry}
-            onChange={(e) => setOriginCountry(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem' }}
-          >
-            <option value="">Please select your Home Country</option>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
+          {select(originCode, setOriginCode, ui.phHome)}
           {showNoticeOrigin && (
             <div style={{ color: '#d9534f', fontSize: '0.95rem' }}>
-              ⚠️ No full drug list available for {originCountry}. Please enter the drug name manually.
+              {ui.noList(originCode)}
             </div>
           )}
 
-          {/* Pets: always free-text (no DB dropdown) */}
           <input
             type="text"
-            placeholder="Please enter medicine name"
+            placeholder={ui.phMed}
             value={selectedDrug}
             onChange={(e) => setSelectedDrug(e.target.value)}
             style={{ width: '100%', padding: '0.5rem' }}
@@ -552,241 +939,17 @@ function Home() {
 
           <input
             type="text"
-            placeholder="Enter dosage (optional)"
+            placeholder={ui.phDose}
             value={selectedDosage}
             onChange={(e) => setSelectedDosage(e.target.value)}
             style={{ width: '100%', padding: '0.5rem' }}
           />
 
-          <select
-            value={targetCountry}
-            onChange={(e) => setTargetCountry(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem' }}
-          >
-            <option value="">Please select the Country to search</option>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          {select(targetCode, setTargetCode, ui.phTarget)}
         </>
       );
     }
 
     return null;
-  };
-
-  const actionDisabled = () => {
-    if (loading) return true;
-    if (mode === 'triage') return true;
-
-    if (mode === 'international') return !(originCountry && selectedDrug && targetCountry);
-    if (mode === 'condition') return !(selectedCondition && targetCountry);
-    // dosage NO LONGER required for these two:
-    if (mode === 'generic') return !(selectedDrug && targetCountry);
-    if (mode === 'leaflet') return !(selectedDrug && targetCountry);
-    if (mode === 'pets') return !(originCountry && selectedDrug && targetCountry);
-    return true;
-  };
-
-  // === NEW: convert result (markdown) -> safe HTML for rendering ===
-  const html = useMemo(() => {
-    try {
-      const parsed = marked.parse(result || '');
-      // DOMPurify uses window; this component is client, so it's safe.
-      return DOMPurify.sanitize(parsed as string);
-    } catch {
-      return '';
-    }
-  }, [result]);
-
-  return (
-    <main style={{ maxWidth: '600px', margin: 'auto', padding: '2rem' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1rem' }}>
-        <img
-          src="/logo.png"
-          alt="medicea logo"
-          style={{ maxWidth: '600px', width: '100%', height: 'auto', marginBottom: '2rem' }}
-        />
-
-        {/* Tagline */}
-        <p
-          style={{
-            fontFamily:
-              "'Caveat', 'Patrick Hand', 'Shadows Into Light', 'Comic Sans MS', 'Segoe UI', cursive",
-            fontSize: '0.95rem',
-            lineHeight: 1.55,
-            color: '#333',
-            textAlign: 'center',
-            letterSpacing: '0.3px',
-            margin: '0.6rem 0 0.9rem',
-            maxWidth: '58ch',
-          }}
-        >
-          Inspired by Panacea, the goddess of the universal cure,&nbsp;
-          <strong>
-            <span style={{ color: '#1E73BE' }}>medi</span>
-            <span style={{ color: '#008080' }}>céa</span>™
-          </strong>{' '}
-          is your passport to medicine anywhere in the world — connecting people to life-saving treatments without borders is our mission.
-        </p>
-
-        {/* NEW: Language switcher directly under the tagline */}
-        <div style={{ marginBottom: '1.25rem' }}>
-          <LanguageButton />
-        </div>
-
-        {/* Buttons (pets in green, triage in red) */}
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <button onClick={() => handleMode('international')} style={gradientBtnBlue(mode === 'international')}>
-            International Medicine Search
-          </button>
-          <button onClick={() => handleMode('condition')} style={gradientBtnBlue(mode === 'condition')}>
-            Search by Condition
-          </button>
-          <button onClick={() => handleMode('generic')} style={gradientBtnBlue(mode === 'generic')}>
-            Search Generic
-          </button>
-          <button onClick={() => handleMode('triage')} style={gradientBtnRed(mode === 'triage')}>
-            Symptoms Triage
-          </button>
-          <button onClick={() => handleMode('leaflet')} style={gradientBtnBlue(mode === 'leaflet')}>
-            Medicine Leaflet
-          </button>
-          <button onClick={() => handleMode('pets')} style={gradientBtnGreen(mode === 'pets')}>
-            Meds 4 Pets
-          </button>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {renderInputs()}
-
-        {mode !== 'triage' && (
-          <button
-            onClick={handleSearch}
-            disabled={actionDisabled()}
-            style={{
-              padding: '0.75rem',
-              background:
-                mode === 'pets'
-                  ? 'linear-gradient(135deg, #0ea34a 0%, #5fd48b 100%)'
-                  : 'linear-gradient(135deg, #0b74de 0%, #69a6ff 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              boxShadow:
-                mode === 'pets'
-                  ? '0 2px 10px rgba(14,163,74,0.25)'
-                  : '0 2px 10px rgba(11,116,222,0.25)',
-            }}
-          >
-            {loading
-              ? 'Searching...'
-              : mode === 'international'
-              ? 'Search International Equivalents'
-              : mode === 'condition'
-              ? 'View Informational Guidance'
-              : mode === 'generic'
-              ? 'Find Generics'
-              : mode === 'leaflet'
-              ? 'Fetch Medicine Leaflet'
-              : mode === 'pets'
-              ? 'Search Pet Medicines'
-              : 'Search'}
-          </button>
-        )}
-
-        {/* === NEW: render formatted markdown instead of a plain textarea === */}
-        {mode !== 'triage' && (
-          <article className="ai-result" dangerouslySetInnerHTML={{ __html: html }} />
-        )}
-
-        <div style={{ fontSize: '0.8rem', color: '#555', marginTop: '2rem' }}>
-          <p style={{ textAlign: 'justify', marginBottom: '1rem' }}>
-            <strong style={{ color: '#cc0000', textDecoration: 'underline' }}>DISCLAIMER</strong>
-            <br />
-            <br />
-            <strong>
-              <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>céa</span>™ is a publicly accessible, AI-assisted
-              informational platform
-            </strong>{' '}
-            that facilitates cross-referencing of medication names and health conditions across countries. It also
-            offers an <strong>AI-powered Symptom Triage Assistant</strong> that generates <u>purely educational outputs</u> based on public data.
-            All content is for <strong>informational purposes only</strong>.
-          </p>
-          <p style={{ textAlign: 'justify' }}>
-            <strong>
-              <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>céa</span>™ is not a medical device and does not provide medical
-              advice, diagnosis, or treatment.
-            </strong>{' '}
-            The symptom triage assistant is an AI experiment and <strong>must not be used to guide health decisions or emergencies.</strong>{' '}
-            Responses are generated from large language models and are not reviewed by doctors or qualified professionals.
-          </p>
-          <p style={{ textAlign: 'justify' }}>
-            Do not rely on this for any clinical, pharmaceutical, or legal decisions. By using this platform, you accept that
-            <strong>
-              {' '}
-              no liability is assumed by <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>céa</span>™ or its creators
-            </strong>
-            .
-          </p>
-          <p style={{ textAlign: 'justify' }}>
-            <strong>
-              <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>céa</span>™
-            </strong>{' '}
-            does <strong>not collect personal medical data</strong> and does not tailor results to individual health histories.
-            By using this service, you acknowledge that <strong>no information provided constitutes medical, legal, or pharmaceutical advice</strong>, and that{' '}
-            <strong>
-              <span style={{ color: '#1E73BE' }}>medi</span>
-              <span style={{ color: '#008080' }}>céa</span>™ and its developers assume no liability
-            </strong>{' '}
-            for actions taken based on its content.
-          </p>
-        </div>
-
-        {visits !== null && (
-          <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#555', marginTop: '1rem' }}>
-            ➤ Total site visits: {visits.toLocaleString()}
-          </p>
-        )}
-
-        <footer
-          style={{
-            textAlign: 'center',
-            fontSize: '0.8rem',
-            color: '#666',
-            marginTop: '2rem',
-            padding: '1rem',
-            borderTop: '1px solid #ddd',
-          }}
-        >
-          © {new Date().getFullYear()}{' '}
-          <strong>
-            <span style={{ color: '#1E73BE' }}>medi</span>
-            <span style={{ color: '#008080' }}>céa</span>™
-          </strong>{' '}
-          by GES Consultancy Ltd. All rights reserved.
-          <br />
-          <a
-            href="/terms"
-            style={{
-              color: '#0b74de',
-              textDecoration: 'underline',
-              marginTop: '0.5rem',
-              display: 'inline-block',
-            }}
-          >
-            Terms & Conditions
-          </a>
-        </footer>
-      </div>
-    </main>
-  );
+  }
 }
