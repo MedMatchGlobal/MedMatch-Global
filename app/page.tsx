@@ -952,13 +952,13 @@ function Home() {
         <img
           src="/logo.png"
           alt="medicéa"
-          style={{ width: '100%', maxWidth: 720, height: 'auto', margin: '0 auto 20px' }}
+          style={{ width: '100%', maxWidth: 650, height: 'auto', margin: '0 auto 20px' }}
         />
         <p
           style={{
             fontFamily: "'Caveat','Patrick Hand','Shadows Into Light','Segoe UI',cursive",
-            fontSize: '1.4rem',
-            lineHeight: 1.55,
+            fontSize: '1.3rem',
+            lineHeight: 1.45,
             color: '#333',
             margin: '0 0 12px',
           }}
