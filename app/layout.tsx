@@ -14,6 +14,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/* ✅ Add Google Fonts */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap"
+          rel="stylesheet"
+        />
+
+        {/* ✅ Google Analytics Scripts */}
         <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
         <Script id="gtag-init" strategy="afterInteractive">
           {`

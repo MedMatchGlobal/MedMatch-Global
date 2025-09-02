@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-export type SupportedLang = "en" | "it" | "fr" | "de" | "es" | "pt";
+export type SupportedLang = "en" | "it" | "fr" | "de" | "es" | "pt" | " nl" | "af" | "ru" | "pl" | "tr" | "el" | "sv" | "no" | "da" | "fi" | "cs" | "hu" | "ro" | "he" | "ar" | "zh" | "hi" | "ja" | "ko";
 
 type Ctx = { lang: SupportedLang; setLang: (l: SupportedLang) => void; };
 const Ctx = createContext<Ctx | null>(null);
