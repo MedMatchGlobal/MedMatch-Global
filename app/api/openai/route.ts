@@ -1,42 +1,43 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { OpenAI } from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: "https://api.openai.com/v1", // ⬅️ Force direct connection to OpenAI, bypass Vercel AI Gateway
+});
 
 export async function POST(req: Request) {
-  const { originCountry, targetCountry, drugName, dosage } = await req.json();
+  const { drugName, originCountry } = await req.json();
 
-  const prompt = `
-A person living in ${originCountry} is looking for the equivalent name of the drug ${drugName} at a dosage of ${dosage} in ${targetCountry}.
-Please provide a comprehensive overview of the drug’s typical naming variations, classification, use cases, potential side effects, and any known regulatory differences between the two countries.
-Also provide a list of available drug options in ${targetCountry}, including branded and generic drugs with a brief overview of the various prices both in local currency and in the currency of ${originCountry}.
-Provide a summary of no more than 200 words that is purely language-based, informative, and publicly available.
-Label each section clearly.
-`;
+  if (!drugName || !originCountry) {
+    return NextResponse.json({ error: "Missing input" }, { status: 400 });
+  }
+
+  const prompt = `Tell me everything you know about the medicine "${drugName}" in ${originCountry}:
+Include:
+- Active ingredients with available strengths, dosages, and formulations
+- Legal classification (Rx/OTC)
+- Contraindications and precautions (age, pregnancy, allergy)
+- Side effects
+- Interactions
+- Price in ${originCountry}
+- Manufacturer or brands`;
+
+  const system = `You are a cautious pharmacist. Only respond with factual and known information. Use the local currency for prices and never invent data.`;
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a multilingual medical drug comparison assistant." },
-          { role: "user", content: prompt }
-        ]
-      })
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return NextResponse.json({ error: errorText || 'OpenAI request failed' }, { status: 500 });
-    }
-
-    const data = await response.json();
-    const message = data.choices?.[0]?.message?.content || "No result found.";
-
-    return NextResponse.json({ message });
+    return NextResponse.json({ result: completion.choices[0].message.content });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Unexpected error" }, { status: 500 });
+    console.error("OpenAI fetch failed:", err);
+    return NextResponse.json({ error: "OpenAI call failed", detail: err.message }, { status: 500 });
   }
 }
