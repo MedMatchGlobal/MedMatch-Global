@@ -1,64 +1,33 @@
-export default function TermsPage() {
+'use client';
+
+import { useEffect } from 'react';
+import { LanguageProvider, useLanguage } from '../LanguageProvider';
+import { isRTL } from '../i18n/i18n';
+import { termsBundles } from './terms-bundles';
+
+function TermsInner() {
+  const { lang } = useLanguage();
+  const code = (lang || 'en').toLowerCase();
+  const html = termsBundles[code] ?? termsBundles.en;
+
+  // Apply RTL for Arabic/Hebrew, etc.
+  useEffect(() => {
+    document.documentElement.dir = isRTL(code) ? 'rtl' : 'ltr';
+  }, [code]);
+
   return (
-    <main style={{ maxWidth: '800px', margin: 'auto', padding: '2rem' }}>
-      <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Terms & Conditions</h1>
-      <p><strong>Last updated:</strong> August 2025</p>
-
-      <p>Welcome to <strong>
-            <span style={{ color: '#1E73BE' }}>medi</span>
-            <span style={{ color: '#008080' }}>céa</span>™
-          </strong>{' '}, by accessing or using this platform, you agree to be bound by the following terms and conditions.</p>
-
-      <h2>1. Informational Use Only</h2>
-      <p>
-        <strong>
-            <span style={{ color: '#1E73BE' }}>medi</span>
-            <span style={{ color: '#008080' }}>céa</span>™
-          </strong>{' '} is an AI-powered tool that provides public, informational insights into medications and health conditions based on country. It does not provide medical advice, diagnosis, or treatment, and must not be relied upon for medical decisions.
-      </p>
-
-      <h2>2. No Medical Relationship</h2>
-      <p>
-        Using <strong>
-            <span style={{ color: '#1E73BE' }}>medi</span>
-            <span style={{ color: '#008080' }}>céa</span>™
-          </strong>{' '} does not establish a doctor-patient relationship. Always consult a qualified medical professional before making any healthcare decisions.
-      </p>
-
-      <h2>3. Accuracy and Liability</h2>
-      <p>
-        While we strive to provide accurate information, we do not guarantee the correctness, completeness, or usefulness of any content. Use of this platform is at your own risk.
-      </p>
-
-      <h2>4. Intellectual Property</h2>
-      <p>
-        All content, design, branding, and trademarks associated with <strong>
-            <span style={{ color: '#1E73BE' }}>medi</span>
-            <span style={{ color: '#008080' }}>céa</span>™
-          </strong>{' '} are the property of GES Consultancy Ltd. Unauthorized use is prohibited.
-      </p>
-
-      <h2>5. Data Privacy</h2>
-      <p>
-        <strong>
-            <span style={{ color: '#1E73BE' }}>medi</span>
-            <span style={{ color: '#008080' }}>céa</span>™
-          </strong>{' '} does not collect or store personal medical data. Anonymous usage statistics may be recorded to improve the platform.
-      </p>
-
-      <h2>6. Changes</h2>
-      <p>
-        We reserve the right to update these terms at any time. Continued use of the site constitutes acceptance of the updated terms.
-      </p>
-
-      <h2>7. Jurisdiction</h2>
-      <p>
-        These terms are governed by the laws of the United Kingdom. Any disputes shall be resolved in UK courts.
-      </p>
-
-      <p style={{ marginTop: '2rem' }}>
-        If you have questions, contact us at: <a href="mailto:info@medicea.global">info@medicea.global</a>
-      </p>
+    <main>
+      <div dangerouslySetInnerHTML={{ __html: html }} />
     </main>
+  );
+}
+
+export default function TermsPage() {
+  // In case your global layout doesn't already wrap pages,
+  // we wrap this route with the LanguageProvider locally.
+  return (
+    <LanguageProvider>
+      <TermsInner />
+    </LanguageProvider>
   );
 }

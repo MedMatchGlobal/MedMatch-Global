@@ -1,191 +1,200 @@
-// /app/api/openai/equivalent_search/route.ts
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
 
-const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-const API = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
-export async function POST(req: NextRequest) {
+type ActiveIng = { name: string; strength: string };
+
+// ---------- helpers ----------
+function mapActivesToNamedSlots(actives: ActiveIng[]) {
+  const ai: Record<string, string> = {
+    AI1: "", Strength1: "",
+    AI2: "", Strength2: "",
+    AI3: "", Strength3: "",
+    AI4: "", Strength4: "",
+    AI5: "", Strength5: "",
+  };
+  const limit = Math.min(actives.length, 5);
+  for (let i = 0; i < limit; i++) {
+    const idx = i + 1;
+    ai[`AI${idx}`] = (actives[i]?.name ?? "").trim();
+    ai[`Strength${idx}`] = (actives[i]?.strength ?? "").trim();
+  }
+  return ai;
+}
+
+function splitDosageToStrengths(d: string): string[] {
+  // Very lenient: split on + , ; or whitespace groups like "500mg + 30mg"
+  return d
+    .split(/(?:\+|,|;)/g)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+// Build "500 mg of Paracetamol together with 30 mg of Codeine Phosphate"
+function buildExplicitList(pairs: { name: string; strength: string }[]) {
+  return pairs
+    .filter(p => p.name && p.strength)
+    .map(p => `${p.strength} of ${p.name}`)
+    .join(" together with ");
+}
+
+// Turn explicit list back into pairs for filtering (robust to units/spaces)
+function explicitListToPairs(explicitList: string) {
+  return explicitList
+    .split(/together with/i)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(seg => {
+      // expects "<strength> of <name>"
+      const m = seg.match(/^(.+?)\s+of\s+(.+)$/i);
+      if (!m) return null;
+      return { strength: m[1].trim(), name: m[2].trim() };
+    })
+    .filter(Boolean) as { strength: string; name: string }[];
+}
+
+// Keep only lines that include ALL pairs as substrings (case-insensitive)
+function filterRawToExactPairs(raw: string, explicitList: string) {
+  const pairs = explicitListToPairs(explicitList);
+  if (!pairs.length) return { filtered: raw, kept: [], dropped: [] };
+
+  // Split model text into bullet-ish lines
+  const lines = raw
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l.length);
+
+  const kept: string[] = [];
+  const dropped: string[] = [];
+
+  for (const line of lines) {
+    const L = line.toLowerCase();
+    const ok = pairs.every(p => {
+      const nameOk = L.includes(p.name.toLowerCase());
+      // Normalize strength (e.g., "5 mg" vs "5mg")
+      const strengthNorm = p.strength.replace(/\s*(mcg|µg|ug|mg|g|micrograms|milligrams|grams)\b/gi, m => ` ${m.toLowerCase()}`).replace(/\s+/g, " ").toLowerCase();
+      const strengthAlt = strengthNorm.replace(/\s/g, ""); // "5 mg" → "5mg"
+      const strengthOk = L.includes(strengthNorm) || L.includes(strengthAlt);
+      return nameOk && strengthOk;
+    });
+    (ok ? kept : dropped).push(line);
+  }
+
+  // If nothing kept, return original (so you can still see what model said)
+  if (!kept.length) {
+    return { filtered: raw, kept, dropped };
+  }
+  return { filtered: kept.join("\n"), kept, dropped };
+}
+
+// Apply user dosage override if strength-count matches actives-count
+function applyUserDosageOverride(
+  actives: ActiveIng[],
+  userDosage?: string | null
+): ActiveIng[] {
+  if (!userDosage) return actives;
+  const parts = splitDosageToStrengths(userDosage);
+  if (parts.length !== actives.length) return actives; // mismatch → ignore override
+  return actives.map((ai, i) => ({ ...ai, strength: parts[i] }));
+}
+
+// --------------------------------------------------------------
+
+export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const originRaw = (body?.originRaw || '').trim(); // original origin profile text (anchor)
-    const originCountry = (body?.originCountry || '').trim();
-    const targetCountry = (body?.targetCountry || '').trim();
-    const drug = (body?.drug || '').trim();
-    const dosage = (body?.dosage || '').trim();
-    const currencySymbols: Record<string, string> = {
-  "Afghanistan": "؋",              // Afghani
-  "Albania": "L",                  // Lek
-  "Algeria": "DZD",                // Algerian Dinar
-  "Andorra": "€",
-  "Angola": "Kz",                  // Kwanza
-  "Argentina": "ARS",
-  "Armenia": "֏",                 // Dram
-  "Australia": "AUD",
-  "Austria": "€",
-  "Azerbaijan": "₼",              // Manat
-  "Bahamas": "BSD",                // Bahamian Dollar
-  "Bahrain": "BD",                 // Bahraini Dinar
-  "Bangladesh": "৳",
-  "Barbados": "BBD",               // Barbados Dollar
-  "Belarus": "Br",                 // Belarusian Ruble
-  "Belgium": "€",
-  "Belize": "BZD",                 // Belize Dollar
-  "Benin": "CFA",                  // West African CFA Franc
-  "Bolivia": "BOB",
-  "Brazil": "R$",
-  "Bulgaria": "лв",
-  "Cameroon": "XAF",
-  "Canada": "CAD",
-  "Chile": "CLP$",
-  "China": "¥",
-  "Colombia": "COL$",
-  "Côte d’Ivoire": "XOF",
-  "Croatia": "€",
-  "Czech Republic": "Kč",
-  "Denmark": "kr",
-  "Ecuador": "USD",                 // (DKK)
-  "Egypt": "E£",
-  "Ethiopia": "Br",
-  "Eurozone": "€",
-  "Finland": "€",
-  "France": "€",
-  "Gabon": "XAF",
-  "Germany": "€",
-  "Ghana": "₵",
-  "Hong Kong": "HK$",
-  "Hungary": "Ft",
-  "Iceland": "kr",                 // (ISK)
-  "India": "₹",
-  "Indonesia": "Rp",
-  "Ireland": "€",
-  "Israel": "₪",
-  "Italy": "€",
-  "Iran": "IRR",
-  "Jamaica": "JMD",
-  "Japan": "¥",
-  "Kenya": "KSh",
-  "Malaysia": "RM",
-  "Luxembourg": "€",
-  "Mexico": "MX$",
-  "Monaco": "€",
-  "Morocco": "MAD",
-  "Netherlands": "€",
-  "New Zealand": "NZD",
-  "Nigeria": "₦",
-  "Norway": "kr",                  // (NOK)
-  "Pakistan": "₨",
-  "Paraguay": "PYG",
-  "Peru": "S/",
-  "Philippines": "₱",
-  "Poland": "zł",
-  "Portugal": "€",
-  "Romania": "lei",
-  "Russia": "₽",
-  "San Marino": "€",
-  "Saudi Arabia": "SAR",
-  "Senegal": "XOF",
-  "Singapore": "S$",
-  "South Africa": "R",
-  "South Korea": "₩",
-  "Spain": "€",
-  "Sri Lanka": "Rs",
-  "Sweden": "kr",                  // (SEK)
-  "Switzerland": "CHF",
-  "Thailand": "฿",
-  "Trinidad & Tobago": "TTD",
-  "Tunisia": "DT",
-  "Turkey": "₺",
-  "Ukraine": "₴",
-  "United Arab Emirates": "AED",
-  "United Kingdom": "£",
-  "United States": "$",
-  "Uruguay": "UYU",
-  "Uzbekistan": "UZS",
-  "Vatican City": "€",
-  "Venezuela": "VES",
-  "Vietnam": "₫",
-  "Yemen": "YER",
-  "Zambia": "ZMW",
-  "Zimbabwe": "ZWL",
-   };
+    const { originCountry, drugName, drugDosage, targetCountry } = await req.json();
 
-    const originCurrencySymbol = currencySymbols[originCountry] || originCountry;
+    // ---------- STEP 1: get origin profile ----------
+    const system1 =
+      "You are a structured medical data extractor. Return JSON only with medicine_name, origin_country, and active_ingredients[{name, strength}].";
 
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response('Missing OPENAI_API_KEY', { status: 500 });
-    }
-    if (!originRaw || !targetCountry) {
-      return new Response('Missing required fields: originRaw, targetCountry', { status: 400 });
-    }
+    const user1 = `
+Find the full composition (active ingredient names AND exact label strengths) of the medicine called "${drugName}"
+sold in ${originCountry}${drugDosage ? ` (user-entered dosage hint: "${drugDosage}")` : ""}.
+Return strictly JSON with keys: medicine_name, origin_country, active_ingredients[{name, strength}]. No extra text.
+`.trim();
 
-    const system = [
-      'You are a multilingual pharmaceutical expert comparing medicines across countries.',
-      'Using the origin profile as a clinical reference (originRaw), find up to 5 equivalent or similar drugs available in the TARGET COUNTRY.',
-      'You MUST return exactly 5 entries, even if similarity is partial or uncertain.',
-      'It’s acceptable to include drugs with low similarity or incomplete info; just write "n/a" where data is missing.',
-      'For each medicine, output all of the following fields in markdown, following the structure below exactly:',
-      'Sort the proposed equivalence on the basis of their similarity level, first the most similar and last the least similar',
-      '',
-      '1. **Name:**',
-      '   - **Active Ingredients:**',
-      '   - **Formulation/Dosage:**',
-      '   - **Legal Classification (Rx/OTC):**',
-      '   - **Manufacturer:**',
-      '   - **Estimated Similarity % to original:**',
-      '   - **Therapeutic indications and posology:**',
-      '   - **Side effects:**',
-      '   - **Contraindications and precautions:**',
-      '   - **Interactions with other medications:**',
-      `   - **Price in ${targetCountry}:** (e.g. "£5.30 from NHS UK – Aug 2025" or "n/a")`,
-      `               - **Converted Price in ${originCurrencySymbol}:** (approximate value converted from target currency using current exchange rates OR "n/a")`,
-      '   - **Reimbursability from National Healthcare System:**',
-      '   - **Notes on any differences:**',
-      '',
-    'Keep responses clear, concise, and clinically useful.',
-    ].join('\n');
-
-    const user = [
-      `Origin country: ${originCountry || 'n/a'}`,
-      `Target country: ${targetCountry}`,
-      `Original drug: ${drug || 'n/a'}`,
-      `Requested dosage (optional): ${dosage || 'n/a'}`,
-      '',
-      'Origin profile text (verbatim anchor):',
-      '"""',
-      originRaw,
-      '"""',
-    ].join('\n');
-
-    const resp = await fetch(API, {
-      method: 'POST',
+    const response1 = await fetch(OPENAI_URL, {
+      method: "POST",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: MODEL,
-        temperature: 0.2,
+        model: "gpt-4o",
+        temperature: 0,
+        response_format: { type: "json_object" },
         messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
+          { role: "system", content: system1 },
+          { role: "user", content: user1 },
         ],
       }),
     });
 
-    if (!resp.ok) {
-      const errTxt = await resp.text();
-      return new Response(errTxt || 'OpenAI error', { status: 500 });
+    const data1 = await response1.json();
+    const originProfile = JSON.parse(data1.choices?.[0]?.message?.content || "{}");
+
+    if (!originProfile?.active_ingredients || originProfile.error) {
+      return NextResponse.json({ error: "NOT_FOUND_ORIGIN", originProfile });
     }
 
-    const data = await resp.json();
-    const content =
-      data?.choices?.[0]?.message?.content ??
-      data?.choices?.[0]?.text ??
-      '';
+    // Use the model-extracted actives, optionally override strengths from user dosage
+    const baseActives: ActiveIng[] = originProfile.active_ingredients;
+    const activesForSearch = applyUserDosageOverride(baseActives, drugDosage);
 
-    // Your page.tsx renders this markdown as-is under the Equivalents header
-    return Response.json({ response: content });
-  } catch (e: any) {
-    return new Response(e?.message || 'Server error', { status: 500 });
+    // Named slots (AI1..AI5 / Strength1..Strength5) for your UI/debug
+    const named = mapActivesToNamedSlots(activesForSearch);
+
+    // Build the explicit composition string used in the query
+    const explicitList = buildExplicitList(activesForSearch);
+
+    // ---------- STEP 2: ask for equivalents with the explicit composition ----------
+    // EXACT, simple, temp=0
+    const system2 = "You are a strict data retriever for licensed medicines. Output only the requested list; do not explain.";
+    const user2 = `Return preferably 10 products available in ${targetCountry} that contain ${explicitList}.`.trim();
+
+    const response2 = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        temperature: 0,
+        seed: 12345,
+        messages: [
+          { role: "system", content: system2 },
+          { role: "user", content: user2 },
+        ],
+      }),
+    });
+
+    const data2 = await response2.json();
+    const rawText = (data2.choices?.[0]?.message?.content || "").trim() || "No response.";
+
+    // ---------- STEP 3: post-filter to exact pairwise matches ----------
+    const { filtered, kept, dropped } = filterRawToExactPairs(rawText, explicitList);
+
+    return NextResponse.json({
+      originProfile,
+      originProfileNamed: {
+        ...named,
+        CompositionSentence: explicitList, // mirrors what we asked for
+      },
+      equivalentResults: {
+        target_country: targetCountry,
+        search_composition: explicitList,
+        raw_text: filtered || "No matches.",
+        // Optional debug fields if you want to see what got removed:
+        // dropped_lines: dropped,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error in equivalent-search route:", error);
+    return NextResponse.json(
+      { error: "SERVER_ERROR", details: error.message },
+      { status: 500 }
+    );
   }
 }

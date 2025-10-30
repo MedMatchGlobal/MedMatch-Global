@@ -1,78 +1,200 @@
-import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextResponse } from "next/server";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
-export async function POST(req: NextRequest) {
+type ActiveIng = { name: string; strength: string };
+
+// ---------- helpers ----------
+function mapActivesToNamedSlots(actives: ActiveIng[]) {
+  const ai: Record<string, string> = {
+    AI1: "", Strength1: "",
+    AI2: "", Strength2: "",
+    AI3: "", Strength3: "",
+    AI4: "", Strength4: "",
+    AI5: "", Strength5: "",
+  };
+  const limit = Math.min(actives.length, 5);
+  for (let i = 0; i < limit; i++) {
+    const idx = i + 1;
+    ai[`AI${idx}`] = (actives[i]?.name ?? "").trim();
+    ai[`Strength${idx}`] = (actives[i]?.strength ?? "").trim();
+  }
+  return ai;
+}
+
+function splitDosageToStrengths(d: string): string[] {
+  // Very lenient: split on + , ; or whitespace groups like "500mg + 30mg"
+  return d
+    .split(/(?:\+|,|;)/g)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+// Build "500 mg of Paracetamol together with 30 mg of Codeine Phosphate"
+function buildExplicitList(pairs: { name: string; strength: string }[]) {
+  return pairs
+    .filter(p => p.name && p.strength)
+    .map(p => `${p.strength} of ${p.name}`)
+    .join(" together with ");
+}
+
+// Turn explicit list back into pairs for filtering (robust to units/spaces)
+function explicitListToPairs(explicitList: string) {
+  return explicitList
+    .split(/together with/i)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(seg => {
+      // expects "<strength> of <name>"
+      const m = seg.match(/^(.+?)\s+of\s+(.+)$/i);
+      if (!m) return null;
+      return { strength: m[1].trim(), name: m[2].trim() };
+    })
+    .filter(Boolean) as { strength: string; name: string }[];
+}
+
+// Keep only lines that include ALL pairs as substrings (case-insensitive)
+function filterRawToExactPairs(raw: string, explicitList: string) {
+  const pairs = explicitListToPairs(explicitList);
+  if (!pairs.length) return { filtered: raw, kept: [], dropped: [] };
+
+  // Split model text into bullet-ish lines
+  const lines = raw
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l.length);
+
+  const kept: string[] = [];
+  const dropped: string[] = [];
+
+  for (const line of lines) {
+    const L = line.toLowerCase();
+    const ok = pairs.every(p => {
+      const nameOk = L.includes(p.name.toLowerCase());
+      // Normalize strength (e.g., "5 mg" vs "5mg")
+      const strengthNorm = p.strength.replace(/\s*(mcg|µg|ug|mg|g|micrograms|milligrams|grams)\b/gi, m => ` ${m.toLowerCase()}`).replace(/\s+/g, " ").toLowerCase();
+      const strengthAlt = strengthNorm.replace(/\s/g, ""); // "5 mg" → "5mg"
+      const strengthOk = L.includes(strengthNorm) || L.includes(strengthAlt);
+      return nameOk && strengthOk;
+    });
+    (ok ? kept : dropped).push(line);
+  }
+
+  // If nothing kept, return original (so you can still see what model said)
+  if (!kept.length) {
+    return { filtered: raw, kept, dropped };
+  }
+  return { filtered: kept.join("\n"), kept, dropped };
+}
+
+// Apply user dosage override if strength-count matches actives-count
+function applyUserDosageOverride(
+  actives: ActiveIng[],
+  userDosage?: string | null
+): ActiveIng[] {
+  if (!userDosage) return actives;
+  const parts = splitDosageToStrengths(userDosage);
+  if (parts.length !== actives.length) return actives; // mismatch → ignore override
+  return actives.map((ai, i) => ({ ...ai, strength: parts[i] }));
+}
+
+// --------------------------------------------------------------
+
+export async function POST(req: Request) {
   try {
-    const { originCountry, drugName, drugDosage, lang } = await req.json();
+    const { originCountry, drugName, drugDosage } = await req.json();
 
-    if (!originCountry || !drugName) {
-      return NextResponse.json({ error: 'originCountry and drugName are required' }, { status: 400 });
-    }
+    // ---------- STEP 1: get origin profile ----------
+    const system1 =
+      "You are a structured medical data extractor. Return JSON only with medicine_name, origin_country, and active_ingredients[{name, strength}].";
 
-    // 1) Fetch trusted origin profile
-    const origin = new URL(req.url);
-    const base = `${origin.protocol}//${origin.host}`;
-    const profileRes = await fetch(`${base}/api/openai/origin-profile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ originCountry, drug: drugName, drugName }),
-      cache: 'no-store',
+    const user1 = `
+Find the full composition (active ingredient names AND exact label strengths) of the medicine called "${drugName}"
+sold in ${originCountry}${drugDosage ? ` (user-entered dosage hint: "${drugDosage}")` : ""}.
+Return strictly JSON with keys: medicine_name, origin_country, active_ingredients[{name, strength}]. No extra text.
+`.trim();
+
+    const response1 = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system1 },
+          { role: "user", content: user1 },
+        ],
+      }),
     });
 
-    if (!profileRes.ok) {
-      const t = await profileRes.text();
-      return NextResponse.json({ error: `origin-profile failed: ${t}` }, { status: 500 });
+    const data1 = await response1.json();
+    const originProfile = JSON.parse(data1.choices?.[0]?.message?.content || "{}");
+
+    if (!originProfile?.active_ingredients || originProfile.error) {
+      return NextResponse.json({ error: "NOT_FOUND_ORIGIN", originProfile });
     }
 
-    const profilePayload = await profileRes.json();
-    const originMarkdown =
-      typeof profilePayload === 'string'
-        ? profilePayload
-        : profilePayload.result || profilePayload.response || profilePayload.text || profilePayload.content || '';
+    // Use the model-extracted actives, optionally override strengths from user dosage
+    const baseActives: ActiveIng[] = originProfile.active_ingredients;
+    const activesForSearch = applyUserDosageOverride(baseActives, drugDosage);
 
-    const prompt = `
-You are a pharmacology expert.
+    // Named slots (AI1..AI5 / Strength1..Strength5) for your UI/debug
+    const named = mapActivesToNamedSlots(activesForSearch);
 
-Using ONLY the following trusted origin drug profile for **${drugName}** in **${originCountry}**, list the **10 closest generic alternatives** available in the same country.
+    // Build the explicit composition string used in the query
+    const explicitList = buildExplicitList(activesForSearch);
 
-Return **markdown** with a numbered list (1–10). For each generic, include these fields as bold labels:
+    // ---------- STEP 2: ask for generics with the explicit composition ----------
+    // EXACT, simple, temp=0
+    const system2 = "You are a strict data retriever for licensed medicines. Output only the requested list; do not explain.";
+    const user2 = `Return preferably 10 non branded/generic products available in ${originCountry} that contain ${explicitList}.`.trim();
 
-1. **Name of the Generic**
-2. **Manufacturer**
-3. **Active Ingredients**
-4. **Available Formulations**
-5. **Available Dosages**
-6. **Legal classification**
-7. **Therapeutic indications and posology**
-8. **Side effects**
-9. **Contraindications and precautions**
-10. **Interactions with other medications**
-11. **Price in ${originCountry}:**
-12. **Notes**
-
-If any field is unknown, write "n/a". Do not repeat the origin profile. Be concise and factual. Always include "**Price in ${originCountry}:**" for every generic item; use local currency. If price is unknown, write "n/a". Do not omit this field.
-
-
---- BEGIN ORIGIN PROFILE ---
-${originMarkdown}
---- END ORIGIN PROFILE ---
-`;
-
-    const completion = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-      temperature: 0.3,
-      messages: [
-        { role: 'system', content: 'You are a precise, concise medical assistant. Never invent facts not derivable from the context.' },
-        { role: 'user', content: prompt }
-      ],
+    const response2 = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        temperature: 0,
+        seed: 12345,
+        messages: [
+          { role: "system", content: system2 },
+          { role: "user", content: user2 },
+        ],
+      }),
     });
 
-    const genericsMarkdown = completion.choices[0]?.message?.content?.trim() || '';
+    const data2 = await response2.json();
+    const rawText = (data2.choices?.[0]?.message?.content || "").trim() || "No response.";
 
-    return NextResponse.json({ genericsMarkdown });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || 'Unknown error' }, { status: 500 });
+    // ---------- STEP 3: post-filter to exact pairwise matches ----------
+    const { filtered, kept, dropped } = filterRawToExactPairs(rawText, explicitList);
+
+    return NextResponse.json({
+      originProfile,
+      originProfileNamed: {
+        ...named,
+        CompositionSentence: explicitList, // mirrors what we asked for
+      },
+      equivalentResults: {
+        origin_country: originCountry,
+        search_composition: explicitList,
+        raw_text: filtered || "No matches.",
+        // Optional debug fields if you want to see what got removed:
+        // dropped_lines: dropped,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error in equivalent-search route:", error);
+    return NextResponse.json(
+      { error: "SERVER_ERROR", details: error.message },
+      { status: 500 }
+    );
   }
 }

@@ -1,5 +1,8 @@
-import { NextResponse } from 'next/server';
+// app/api/drugs/uk/route.ts (and us/route.ts, [cc]/brands, [cc]/ingredients, etc.)
+export const runtime = 'nodejs';
+
 import { prisma } from '@/lib/prisma';
+import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {

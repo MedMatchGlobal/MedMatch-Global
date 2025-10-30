@@ -1,70 +1,63 @@
 // app/api/translate/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-const langName: Record<string, string> = {
-  en: "English",
-  it: "Italian",
-  fr: "French",
-  de: "German",
-  es: "Spanish",
-  pt: "Portuguese",
-  nl: "Dutch",
-  af: "Afrikaans",
-  ru: "Русский",
-  pl: "Polski",
-  tr: "Türkçe",
-  el: "Ελληνικά",
-  sv: "Svenska",
-  no: "Norsk",
-  da: "Dansk",
-  fi: "Suomi",
-  cs: "Čeština",
-  hu: "Magyar",
-  ro: "Română",
-  he: "עברית",
-  ar: "العربية",
-  zh: "中文",
-  hi:  "हिन्दी",
-  ja: "日本語",
-  ko: "한국어",
-};
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
+/**
+ * POST body: { text: string, target: string }
+ * Returns: { result: string }
+ *
+ * Preserves formatting (HTML/Markdown, bullet points, line breaks).
+ */
 export async function POST(req: NextRequest) {
   try {
     const { text, target } = await req.json();
-    if (!text || !target) {
-      return NextResponse.json({ error: "Missing text/target" }, { status: 400 });
+
+    if (!text || typeof text !== "string") {
+      return NextResponse.json({ error: "Missing 'text' string" }, { status: 400 });
+    }
+    if (!target || typeof target !== "string") {
+      return NextResponse.json({ error: "Missing 'target' string" }, { status: 400 });
     }
 
-    // Always use absolute origin so it works on localhost & Vercel
-    const { origin } = new URL(req.url);
+    const system =
+      "You are a precise technical translator. Preserve all HTML/Markdown, bullets, line breaks, punctuation, numbers, and units. Do not add commentary—return translated text only.";
 
-    const targetName = langName[target] ?? target; // map "it" -> "Italian"
-    const prompt =
-      `Translate the text to ${targetName}.` +
-      ` Preserve meaning, tone and formatting (including line breaks and bullets).` +
-      ` Return plain text only.\n\n${text}`;
+    const prompt = `Translate the following text into ${target}. Keep any HTML/Markdown exactly as-is.\n\n${text}`;
 
-    const resp = await fetch(`${origin}/api/openai`, {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
       body: JSON.stringify({
+        model: MODEL,
+        temperature: 0.2,
         messages: [
-          { role: "system", content: "You are a precise, context-aware translator for health/medical text." },
-          { role: "user", content: prompt }
-        ]
-      })
+          { role: "system", content: system },
+          { role: "user", content: prompt },
+        ],
+      }),
     });
 
     if (!resp.ok) {
-      const err = await resp.text();
-      return NextResponse.json({ error: `Translation route failed: ${err}` }, { status: 500 });
+      const errText = await resp.text();
+      return NextResponse.json({ error: `OpenAI error: ${errText}` }, { status: 500 });
     }
 
     const data = await resp.json();
-    const translated = data?.content ?? data?.message ?? data?.text ?? "";
-    return NextResponse.json({ translated });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
+    const translated: string =
+      data?.choices?.[0]?.message?.content?.trim() ||
+      data?.choices?.[0]?.message?.content ||
+      "";
+
+    return NextResponse.json({ result: translated });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || "Unknown translation error" },
+      { status: 500 }
+    );
   }
 }
