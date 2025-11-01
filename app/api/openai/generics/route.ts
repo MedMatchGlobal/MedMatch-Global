@@ -191,7 +191,7 @@ Return strictly JSON with keys: medicine_name, origin_country, active_ingredient
       },
     });
   } catch (error: any) {
-    console.error("Error in equivalent-search route:", error);
+    console.error("Error in generics-search route:", error);
     return NextResponse.json(
       { error: "SERVER_ERROR", details: error.message },
       { status: 500 }

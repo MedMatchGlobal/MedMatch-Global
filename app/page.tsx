@@ -1,21 +1,9 @@
 /* 
 ===============================================================================
-This file is your original app/page.tsx with ONLY the condition dropdown logic
-switched to load translated labels from /data/i18n/conditions/<lang>.ts and
-grouping from /data/conditions.ts. Everything else is kept identical.
-
-CHANGES:
-- Added state: conditionMap, conditionGroups
-- Rewrote the "load conditions" effect to:
-    1) import translations from data/i18n/conditions/<lang>.ts
-    2) import group structure from data/conditions.ts
-    3) build conditionOptions (labels) and conditionGroups (for <optgroup>)
-- Replaced the hard-coded <datalist> with dynamic options
-- Added an optional grouped <select> under the text box for "browse by area"
+Fixed banner logic for "Generics" label + country, and removed banner from Leaflet
 ===============================================================================
 */
 
-/* app/page.tsx */
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -69,9 +57,7 @@ function safeUI(t: any) {
   ) as UIStrings['ui'];
 }
 
-/** Hard fallback to readable English so layout never collapses.
- *  Now supports optional {placeholders}.
- */
+/** Interpolate with {placeholders} and safe defaults */
 function F(
   ui: any,
   key: string,
@@ -150,7 +136,6 @@ function stripMarkdownBasic(s: string) {
   if (!s) return s;
   let out = s;
 
-  // Remove markdown artifacts
   out = out.replace(/^#{1,6}\s*/gm, '');
   out = out.replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1');
   out = out.replace(/`+/g, '');
@@ -158,7 +143,7 @@ function stripMarkdownBasic(s: string) {
   out = out.replace(/"/g, '');
   out = out.replace(/\n{3,}/g, '\n\n');
 
-  // 💥 NEW: Make lines ending with ":" bold (headings)
+  // Make lines ending with ":" bold (headings)
   out = out.replace(/^(.+?):$/gm, '<strong>$1:</strong>');
 
   return out.trim();
@@ -225,25 +210,20 @@ function extractLeafletText(rawInput: string): string {
   return cleanArtifacts(jsonUnescapeMaybe(raw));
 }
 
-// --- Detect trivial connectors like "and", "e", "y", etc. in 24 languages ---
+// Detect trivial connectors in many languages
 function isTrivialConnector(s: string) {
   const w = (s || '').trim().toLowerCase().replace(/[.:;,\-–—]+$/g, '');
-
-  // "and" in all supported UI languages (24)
   const connectors = [
     'and', 'et', 'y', 'e', 'und', 'og', 'och', 'ja', 'i', 'a', 'és', 've',
     'و', 'и', 'και', 'এবং', 'અને', '및', '及', 'と', 'dan', 'veya', 'en', 'også',
   ];
-
   return connectors.includes(w);
 }
 
-// --- Clean, bullet-safe formatter for leaflet blocks ---
 function bulletifyBlock(text: string) {
   const rawLines = text.split('\n').map((s) => s.replace(/^[“”"']\s*/, '').trim());
   const normalized = rawLines.map((line) => line.replace(/^[\u2013\u2014\u2212]\s+/, '- '));
 
-  // Keep only meaningful lines; drop empties and trivial connectors
   const lines = normalized.filter((l) => {
     if (!l) return false;
     if (isTrivialConnector(l)) return false;
@@ -266,7 +246,6 @@ function bulletifyBlock(text: string) {
     );
   }
 
-  // Skip if nothing meaningful remains
   if (lines.length === 0) return null;
 
   const joined = lines.join(' ').trim();
@@ -346,7 +325,6 @@ function mapsUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-/** keep brand colors inside disclaimers & slogan */
 function stylizeBrand(html: string) {
   if (!html) return html;
   const logo = `<strong><span style="color:#1E73BE">medi</span><span style="color:#008080">céa</span>™</strong>`;
@@ -358,25 +336,13 @@ function stylizeBrand(html: string) {
   return out;
 }
 
-/** Bold likely section titles in the condition response. */
 function boldConditionHeadings(raw: string) {
   if (!raw) return "";
-
-  // 1️⃣ DO NOT escape HTML here (so <strong> tags will actually render)
   let out = raw;
-
-  // 2️⃣ Bold section titles like "1) Something"
   out = out.replace(/^(\s*\d+\)\s+.*)$/gm, "<strong>$1</strong>");
-
-  // 3️⃣ Bold standalone lines ending with ":" (not bullets)
   out = out.replace(/^(?!\s*[-•*]\s)(.+?:)\s*$/gm, "<strong>$1</strong>");
-
-  // 4️⃣ Convert newlines to <br> for consistent layout
   out = out.replace(/\r?\n/g, "<br>");
-
-  // 5️⃣ Optional cleanup for stray escaped tags (if they exist)
   out = out.replace(/&lt;(\/?strong)&gt;/g, "<$1>");
-
   return out;
 }
 
@@ -400,19 +366,15 @@ function Home() {
 
   const { lang } = useLanguage();
 
-  // ---- Load translated conditions + groups from your data files (NO other changes needed) ----
+  // Load translated conditions + groups
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        // 1) Load the language-specific condition translations:
-        //    A) flat map { [key]: "Translated label" }, or
-        //    B) grouped object { [groupLabel]: { [key]: "Translated label" } }
         const transMod = await import(`../data/i18n/conditions/${(lang || 'en').toLowerCase()}.ts`).catch(() => null);
         const translations = (transMod && (transMod as any).default) || {};
 
-        // 2) Load the grouping definition (ids + item keys).
         const groupMod = await import('../data/conditions').catch(() => null);
         let groupsArr: Array<{ id: string; label: string; items: string[] }> | undefined;
         if (groupMod) {
@@ -436,7 +398,6 @@ function Home() {
           }
         }
 
-        // 3) Normalize translations to a flat key->label map
         const flat: Record<string, string> = {};
         const isGroupedTranslations =
           !!translations &&
@@ -457,14 +418,12 @@ function Home() {
           }
         }
 
-        // 4) Build datalist options (alphabetical)
         const labels = Object.values(flat).filter(Boolean).sort((a, b) => a.localeCompare(b));
 
         if (!cancelled) {
           setConditionMap(flat);
           setConditionOptions(labels);
 
-          // 5) Prepare groups for the <optgroup> browser
           if (groupsArr && groupsArr.length > 0) {
             const norm = groupsArr
               .map((g) => ({
@@ -493,7 +452,7 @@ function Home() {
     };
   }, [lang]);
 
-  // Load localized labels for group headings (condition-groups/<lang>.ts -> fallback to en)
+  // Load localized labels for group headings
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -546,7 +505,6 @@ function Home() {
     };
   }, [lang]);
 
-  // STRICT UI — ignores empty strings from translations and falls back to English first.
   const ui = useMemo(() => safeUI(t), [t]);
 
   type Mode =
@@ -581,7 +539,6 @@ function Home() {
   const [useGeo, setUseGeo] = useState(false);
   const [geoStr, setGeoStr] = useState('');
 
-  // ---- Translated specialties (with safe fallback) ----
   const specList = useMemo(() => {
     const fromLang = Array.isArray((t as any)?.ui?.specialties) ? ((t as any).ui.specialties as string[]) : [];
     const fromEn = (enStrings as any)?.ui?.specialties as string[] | undefined;
@@ -620,12 +577,10 @@ function Home() {
 
   const plainText = useMemo(() => (typeof result === 'string' ? result : ''), [result]);
 
-  // HTML that bolds headings only for the 'condition' mode
-const formattedHTML = useMemo(() => {
-  if (!plainText) return "";
-  return mode === "condition" ? boldConditionHeadings(plainText) : plainText;
-}, [plainText, mode]);
-
+  const formattedHTML = useMemo(() => {
+    if (!plainText) return "";
+    return mode === "condition" ? boldConditionHeadings(plainText) : plainText;
+  }, [plainText, mode]);
 
   const handleSearch = async () => {
     if (mode === 'triage') return;
@@ -657,10 +612,10 @@ const formattedHTML = useMemo(() => {
         return;
       }
 
-if (mode === 'condition') {
-  const country = targetCountry || originCountry;
+      if (mode === 'condition') {
+        const country = targetCountry || originCountry;
 
-  const query = `
+        const query = `
 You are a careful medical information assistant. Write in ${lang}. Audience: layperson.
 **Do NOT diagnose. Do NOT give specific doses.** Use metric units. If something is unknown, say "Not available".
 
@@ -685,64 +640,23 @@ Return **clear, concise Markdown** with these sections and short bullet points w
 Tone: calm, supportive, non-alarming. Be country-aware about access rules and pathways. Keep it compact.
 `.trim();
 
-  const res = await fetch('/api/ai-search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      query,
-      mode,
-      originCountry,
-      targetCountry,
-      selectedDrug,
-      selectedDosage,
-      lang,
-    }),
-  });
+        const res = await fetch('/api/ai-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            mode,
+            originCountry,
+            targetCountry,
+            selectedDrug,
+            selectedDosage,
+            lang,
+          }),
+        });
 
-  const txt = pickText(await res.json());
-  const cleaned = stripMarkdownBasic(cleanArtifacts(txt));
-  setResult(cleaned || F(ui, 'noResult', 'No results.'));
-  setLoading(false);
-  return;
-}
-
-
-      if (mode === 'pharmacy' || mode === 'gp' || mode === 'hospital' || mode === 'doctor') {
-        const category =
-          mode === 'pharmacy'
-            ? F(ui, 'catPharmacy', 'pharmacy')
-            : mode === 'gp'
-            ? F(ui, 'catGP', 'general practitioner')
-            : mode === 'hospital'
-            ? F(ui, 'catHospital', 'hospital')
-            : doctorSpec;
-
-        let where = userAddress.trim();
-        if (!where && useGeo) {
-          await new Promise<void>((resolve) => {
-            if (!navigator.geolocation) return resolve();
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                const s = `${pos.coords.latitude},${pos.coords.longitude}`;
-                setGeoStr(s);
-                resolve();
-              },
-              () => resolve(),
-              { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-            );
-          });
-          where = geoStr;
-        }
-
-        if (!where) {
-          setResult(F(ui, 'pleaseEnterAddress', 'Please enter an address or use device location.'));
-          setLoading(false);
-          return;
-        }
-
-        const url = mapsUrl(`${category} near ${where}`);
-        window.open(url, '_blank', 'noopener,noreferrer');
-        setResult(`${F(ui, 'opening', 'Opening')}: ${category} ${F(ui, 'near', 'near')} ${where}`);
+        const txt = pickText(await res.json());
+        const cleaned = stripMarkdownBasic(cleanArtifacts(txt));
+        setResult(cleaned || F(ui, 'noResult', 'No results.'));
         setLoading(false);
         return;
       }
@@ -831,72 +745,70 @@ Tone: calm, supportive, non-alarming. Be country-aware about access rules and pa
   };
   const select: React.CSSProperties = input;
 
-  // >>> Button fixed sizing (prevents layout shifts across languages) <<<
-  const BTN_WIDTH = 200; // fixed width for every button (px)
-  const BTN_HEIGHT = 40; // fixed height to fit up to 2 lines comfortably
+  const BTN_WIDTH = 200;
+  const BTN_HEIGHT = 40;
 
-const btn = (
-  active: boolean,
-  hue:
-    | 'blue'
-    | 'green'
-    | 'red'
-    | 'purple'
-    | 'teal'
-    | 'orange'
-    | 'darkblue'
-    | 'yellow'
-    | 'pink'
-    | 'amber'
-    | 'darkgreen'
-    | 'navy'
-    | 'black'
-): React.CSSProperties => {
-  const pal: Record<string, [string, string, string, string]> = {
-    blue: active
-      ? ['#0b74de', '#69a6ff', '#fff', '#075bb0']
-      : ['#e6f0ff', '#f7fbff', '#0b74de', '#bcd6ff'],
-    green: active
-      ? ['#0ea34a', '#5fd48b', '#fff', '#0b803a']
-      : ['#e8f8ef', '#f6fffa', '#0e7c3a', '#b3e6c2'],
-    red: active
-      ? ['#c61a1a', '#ff7a1a', '#fff', '#9c1515']
-      : ['#ffe9e9', '#fff7f7', '#b30000', '#ffcccc'],
-    darkgreen: active
-      ? ['#065f46', '#10b981', '#fff', '#044733']
-      : ['#e6f7ef', '#f6fff9', '#064e3b', '#b2e2c0'],
-    darkblue: active
-      ? ['#003366', '#3366CC', '#fff', '#001f4d']
-      : ['#e8eefc', '#f5f7ff', '#002855', '#bcd0f5'],
-    yellow: active
-      ? ['#facc15', '#fde68a', '#000', '#d6ad00']
-      : ['#fffbe6', '#fffef7', '#92400e', '#f9e69b'],
+  const btn = (
+    active: boolean,
+    hue:
+      | 'blue'
+      | 'green'
+      | 'red'
+      | 'purple'
+      | 'teal'
+      | 'orange'
+      | 'darkblue'
+      | 'yellow'
+      | 'pink'
+      | 'amber'
+      | 'darkgreen'
+      | 'navy'
+      | 'black'
+  ): React.CSSProperties => {
+    const pal: Record<string, [string, string, string, string]> = {
+      blue: active
+        ? ['#0b74de', '#69a6ff', '#fff', '#075bb0']
+        : ['#e6f0ff', '#f7fbff', '#0b74de', '#bcd6ff'],
+      green: active
+        ? ['#0ea34a', '#5fd48b', '#fff', '#0b803a']
+        : ['#e8f8ef', '#f6fffa', '#0e7c3a', '#b3e6c2'],
+      red: active
+        ? ['#c61a1a', '#ff7a1a', '#fff', '#9c1515']
+        : ['#ffe9e9', '#fff7f7', '#b30000', '#ffcccc'],
+      darkgreen: active
+        ? ['#065f46', '#10b981', '#fff', '#044733']
+        : ['#e6f7ef', '#f6fff9', '#064e3b', '#b2e2c0'],
+      darkblue: active
+        ? ['#003366', '#3366CC', '#fff', '#001f4d']
+        : ['#e8eefc', '#f5f7ff', '#002855', '#bcd0f5'],
+      yellow: active
+        ? ['#facc15', '#fde68a', '#000', '#d6ad00']
+        : ['#fffbe6', '#fffef7', '#92400e', '#f9e69b'],
+    };
+
+    const [c1, c2, txt] = pal[hue] || ['#ccc', '#eee', '#000', '#bbb'];
+
+    return {
+      width: BTN_WIDTH,
+      height: BTN_HEIGHT,
+      padding: '6px 10px',
+      borderRadius: 10,
+      border: 'none',
+      cursor: 'pointer',
+      background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
+      color: txt,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+      lineHeight: 1.15,
+      fontWeight: 700,
+      fontSize: '0.95rem',
+      transition: 'background 0.15s ease, transform 0.1s ease',
+    };
   };
-
-  const [c1, c2, txt, pressed] = pal[hue] || ['#ccc', '#eee', '#000', '#bbb'];
-
-  return {
-    width: BTN_WIDTH,
-    height: BTN_HEIGHT,
-    padding: '6px 10px',
-    borderRadius: 10,
-    border: 'none',
-    cursor: 'pointer',
-    background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
-    color: txt,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textAlign: 'center',
-    whiteSpace: 'normal',
-    wordBreak: 'break-word',
-    lineHeight: 1.15,
-    fontWeight: 700,
-    fontSize: '0.95rem',
-    transition: 'background 0.15s ease, transform 0.1s ease',
-  };
-};
-
 
   /* -------------------------- RENDER -------------------------- */
 
@@ -909,177 +821,37 @@ const btn = (
   .leaflet-block{margin-top:12px}
   @keyframes pulseDots{0%{opacity:.2}50%{opacity:1}100%{opacity:.2}}
 
-  /* pressed state */
   button:active{filter:brightness(0.85);transform:translateY(1px)}
-  /* or scope just to your pills: .pill:active{...} */
-        /* --- Glossy pill buttons --- */
-.pill {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 
-  width: 200px;        /* keep your fixed width */
-  height: 44px;        /* close to your current 40px; tweak if you prefer */
-  padding: 0 18px;
+  .pill { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 200px; height: 44px; padding: 0 18px; border-radius: 9999px; font-weight: 700; font-size: 0.95rem; line-height: 1.15; text-align: center; white-space: normal; word-break: break-word; user-select: none; cursor: pointer; border: 1px solid rgba(0,0,0,0.25); box-shadow: inset 0 -8px 16px rgba(0,0,0,0.28), inset 0 10px 22px rgba(255,255,255,0.45), 0 8px 18px rgba(0,0,0,0.22); }
+  .pill::before { content: ""; position: absolute; top: 6%; left: 6%; right: 6%; height: 38%; border-radius: 9999px; background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0.55) 60%, rgba(255,255,255,0.0) 100%); pointer-events: none; }
+  .pill::after { content: ""; position: absolute; inset: 1px; border-radius: 9999px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18), inset 0 12px 24px rgba(255,255,255,0.12); pointer-events: none; }
+  .pill.is-active{ transform: translateY(2px); filter: brightness(0.95); box-shadow: inset 0 -5px 12px rgba(0,0,0,0.32), inset 0 8px 18px rgba(255,255,255,0.40), 0 6px 14px rgba(0,0,0,0.20); }
 
-  border-radius: 9999px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  line-height: 1.15;
-  text-align: center;
-  white-space: normal;
-  word-break: break-word;
-  user-select: none;
-  cursor: pointer;
+  .pill--blue { color: #ffffff; background: linear-gradient(#bfe6ff 0%, #8fd2ff 40%, #55adff 60%, #1b7fe5 100%); }
+  .pill--blue:active { background: linear-gradient(#a6dbff 0%, #4f99d5ff 40%, #165da0ff 60%, #053163ff 100%); filter: brightness(0.95); transform: translateY(1px); }
+  .pill--blue.is-active{ background: linear-gradient(#9ed5ff 0%, #4f99d5ff 40%, #165da0ff 60%, #053163ff 100%); }
 
-  /* edge + depth */
-  border: 1px solid rgba(0,0,0,0.25);
-  box-shadow:
-    inset 0 -8px 16px rgba(0,0,0,0.28),    /* bottom inner shading */
-    inset 0 10px 22px rgba(255,255,255,0.45), /* top inner glow */
-    0 8px 18px rgba(0,0,0,0.22);           /* outer drop shadow */
-}
+  .pill--green { color: #ffffff; background: linear-gradient(#c9f7b2 0%, #93ea7c 40%, #47c24f 60%, #1e9e3a 100%); }
+  .pill--green:active { background: linear-gradient(#b7f09a 0%, #48c927ff 40%, #0d8a17ff 60%, #035717ff 100%); filter: brightness(0.95); transform: translateY(1px); }
+  .pill--green.is-active{ background: linear-gradient(#baf19d 0%, #48c927ff 40%, #0d8a17ff 60%, #035717ff 100%)); }
 
-/* glossy highlight */
-.pill::before {
-  content: "";
-  position: absolute;
-  top: 6%;
-  left: 6%;
-  right: 6%;
-  height: 38%;
-  border-radius: 9999px;
-  background: linear-gradient(
-    to bottom,
-    rgba(255,255,255,0.95),
-    rgba(255,255,255,0.55) 60%,
-    rgba(255,255,255,0.0) 100%
-  );
-  pointer-events: none;
-}
+  .pill--red { color: #ffffff; background: linear-gradient(#ffc1b8 0%, #ff8f85 40%, #e2554d 60%, #bb2222 100%); }
+  .pill--red:active { background: linear-gradient(#ffb1a6 0%, #c95e54ff 40%, #921d17ff 60%, #670505ff 100%); filter: brightness(0.95); transform: translateY(1px); }
+  .pill--red.is-active{ background: linear-gradient(#ffb0a6 0%, #c95e54ff 40%, #921d17ff 60%, #670505ff 100%); }
 
-/* inner rim shine */
-.pill::after {
-  content: "";
-  position: absolute;
-  inset: 1px;
-  border-radius: 9999px;
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.18),
-    inset 0 12px 24px rgba(255,255,255,0.12);
-  pointer-events: none;
-}
-.pill.is-active{
-  transform: translateY(2px);
-  filter: brightness(0.95);
-  box-shadow:
-    inset 0 -5px 12px rgba(0,0,0,0.32),
-    inset 0 8px 18px rgba(255,255,255,0.40),
-    0 6px 14px rgba(0,0,0,0.20);
-}
+  .pill--yellow { color: #5a4a00; background: linear-gradient(#fff2a6 0%, #ffe067 40%, #ffca3a 60%, #f0b100 100%); }
+  .pill--yellow:active { background: linear-gradient(#ffe88e 0%, #cab05bff 40%, #b48b23ff 60%, #6a4f04ff 100%); filter: brightness(0.95); transform: translateY(1px); }
+  .pill--yellow.is-active{ background: linear-gradient(#ffe98e 0%, #cab05bff 40%, #b48b23ff 60%, #6a4f04ff 100%)); }
 
-/* colorways (match your sample image) */
-.pill--blue {
-  color: #ffffff;
-  background: linear-gradient(#bfe6ff 0%, #8fd2ff 40%, #55adff 60%, #1b7fe5 100%);
-}
-.pill--blue:active {
-  background: linear-gradient(#a6dbff 0%, #4f99d5ff 40%, #165da0ff 60%, #053163ff 100%);
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
-.pill--blue.is-active{
-  background: linear-gradient(#9ed5ff 0%, #4f99d5ff 40%, #165da0ff 60%, #053163ff 100%);
-}
-.pill--green {
-  color: #ffffff;
-  background: linear-gradient(#c9f7b2 0%, #93ea7c 40%, #47c24f 60%, #1e9e3a 100%);
-}
-.pill--green:active {
-  background: linear-gradient(#b7f09a 0%, #48c927ff 40%, #0d8a17ff 60%, #035717ff 100%);
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
-.pill--green.is-active{
-  background: linear-gradient(#baf19d 0%, #48c927ff 40%, #0d8a17ff 60%, #035717ff 100%));
-}
-.pill--red {
-  color: #ffffff;
-  background: linear-gradient(#ffc1b8 0%, #ff8f85 40%, #e2554d 60%, #bb2222 100%);
-}
-.pill--red:active {
-  background: linear-gradient(#ffb1a6 0%, #c95e54ff 40%, #921d17ff 60%, #670505ff 100%);
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
-.pill--red.is-active{
-  background: linear-gradient(#ffb0a6 0%, #c95e54ff 40%, #921d17ff 60%, #670505ff 100%);
-}
-.pill--yellow {
-  color: #5a4a00;
-  background: linear-gradient(#fff2a6 0%, #ffe067 40%, #ffca3a 60%, #f0b100 100%);
-}
-.pill--yellow:active {
-  background: linear-gradient(#ffe88e 0%, #cab05bff 40%, #b48b23ff 60%, #6a4f04ff 100%);
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
-.pill--yellow.is-active{
-  background: linear-gradient(#ffe98e 0%, #cab05bff 40%, #b48b23ff 60%, #6a4f04ff 100%));
-}
+  .pill[disabled], .pill--disabled { opacity: 0.5; cursor: not-allowed; box-shadow: inset 0 -6px 12px rgba(0,0,0,0.20), inset 0 8px 18px rgba(255,255,255,0.35), 0 4px 10px rgba(0,0,0,0.12); }
 
-/* pressed/active feel */
-.pill:active {
-  transform: translateY(1px);
-  box-shadow:
-    inset 0 -5px 12px rgba(0,0,0,0.32),
-    inset 0 8px 18px rgba(255,255,255,0.40),
-    0 6px 14px rgba(0,0,0,0.2);
-}
+  .pill-sm { width: auto; height: 36px; padding: 0 12px; font-size: 0.9rem; border-radius: 9999px; }
 
-/* disabled */
-.pill[disabled], .pill--disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  box-shadow:
-    inset 0 -6px 12px rgba(0,0,0,0.20),
-    inset 0 8px 18px rgba(255,255,255,0.35),
-    0 4px 10px rgba(0,0,0,0.12);
-}
-
-/* small pill for the leaflet buttons */
-.pill-sm {
-  width: auto;
-  height: 36px;
-  padding: 0 12px;
-  font-size: 0.9rem;
-  border-radius: 9999px;
-}
-  
-/* --- ensure active (toggled) buttons stay visually pressed --- */
-.pill--blue.is-active {
-  background: linear-gradient(#9ed5ff 0%, #4f99d5ff 40%, #165da0ff 60%, #053163ff 100%) !important;
-  filter: brightness(0.96);
-  transform: translateY(2px);
-}
-.pill--green.is-active {
-  background: linear-gradient(#b7f09a 0%, #48c927ff 40%, #0d8a17ff 60%, #035717ff 100%) !important;
-  filter: brightness(0.96);
-  transform: translateY(2px);
-}
-.pill--red.is-active {
-  background: linear-gradient(#ffb1a6 0%, #c95e54ff 40%, #921d17ff 60%, #670505ff 100%) !important;
-  filter: brightness(0.96);
-  transform: translateY(2px);
-}
-.pill--yellow.is-active {
-  background: linear-gradient(#ffe88e 0%, #cab05bff 40%, #b48b23ff 60%, #6a4f04ff 100%) !important;
-  color: #5a4a00;
-  filter: brightness(0.96);
-  transform: translateY(2px);
-}
-
+  .pill--blue.is-active { background: linear-gradient(#9ed5ff 0%, #4f99d5ff 40%, #165da0ff 60%, #053163ff 100%) !important; filter: brightness(0.96); transform: translateY(2px); }
+  .pill--green.is-active { background: linear-gradient(#b7f09a 0%, #48c927ff 40%, #0d8a17ff 60%, #035717ff 100%) !important; filter: brightness(0.96); transform: translateY(2px); }
+  .pill--red.is-active { background: linear-gradient(#ffb1a6 0%, #c95e54ff 40%, #921d17ff 60%, #670505ff 100%) !important; filter: brightness(0.96); transform: translateY(2px); }
+  .pill--yellow.is-active { background: linear-gradient(#ffe88e 0%, #cab05bff 40%, #b48b23ff 60%, #6a4f04ff 100%) !important; color: #5a4a00; filter: brightness(0.96); transform: translateY(2px); }
       `}</style>
 
       {/* Header */}
@@ -1104,76 +876,45 @@ const btn = (
 
         {/* Mode buttons */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', margin: '12px 0 8px' }}>
-<button
-  className={`pill pill--blue ${mode === 'international' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('international')}
->
-  {F(ui, 'btnIntl', 'International Medicine Search')}
-</button>
+          <button className={`pill pill--blue ${mode === 'international' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('international')}>
+            {F(ui, 'btnIntl', 'International Medicine Search')}
+          </button>
 
-<button
-  className={`pill pill--blue ${mode === 'generic' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('generic')}
->
-  {F(ui, 'btnGen', 'Search Generic')}
-</button>
+          <button className={`pill pill--blue ${mode === 'generic' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('generic')}>
+            {F(ui, 'btnGen', 'Search Generic')}
+          </button>
 
-<button
-  className={`pill pill--blue ${mode === 'leaflet' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('leaflet')}
->
-  {F(ui, 'btnLeaflet', 'Medicine Leaflet')}
-</button>
+          <button className={`pill pill--blue ${mode === 'leaflet' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('leaflet')}>
+            {F(ui, 'btnLeaflet', 'Medicine Leaflet')}
+          </button>
 
-<button
-  className={`pill pill--red ${mode === 'condition' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('condition')}
->
-  {F(ui, 'btnCond', 'Search by Medical Condition')}
-</button>
+          <button className={`pill pill--red ${mode === 'condition' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('condition')}>
+            {F(ui, 'btnCond', 'Search by Medical Condition')}
+          </button>
 
-<button
-  className={`pill pill--green ${mode === 'pharmacy' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('pharmacy')}
->
-  {F(ui, 'btnPharmacy', 'Search Pharmacy')}
-</button>
+          <button className={`pill pill--green ${mode === 'pharmacy' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('pharmacy')}>
+            {F(ui, 'btnPharmacy', 'Search Pharmacy')}
+          </button>
 
-<button
-  className={`pill pill--green ${mode === 'hospital' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('hospital')}
->
-  {F(ui, 'btnHospital', 'Search Hospital')}
-</button>
+          <button className={`pill pill--green ${mode === 'hospital' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('hospital')}>
+            {F(ui, 'btnHospital', 'Search Hospital')}
+          </button>
 
-<button
-  className={`pill pill--green ${mode === 'gp' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('gp')}
->
-  {F(ui, 'btnGP', 'Search GP')}
-</button>
+          <button className={`pill pill--green ${mode === 'gp' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('gp')}>
+            {F(ui, 'btnGP', 'Search GP')}
+          </button>
 
-<button
-  className={`pill pill--green ${mode === 'doctor' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('doctor')}
->
-  {F(ui, 'btnDoctor', 'Search Doctor')}
-</button>
+          <button className={`pill pill--green ${mode === 'doctor' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('doctor')}>
+            {F(ui, 'btnDoctor', 'Search Doctor')}
+          </button>
 
-<button
-  className={`pill pill--red ${mode === 'triage' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('triage')}
->
-  {F(ui, 'btnTriage', 'Symptoms Triage')}
-</button>
+          <button className={`pill pill--red ${mode === 'triage' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('triage')}>
+            {F(ui, 'btnTriage', 'Symptoms Triage')}
+          </button>
 
-<button
-  className={`pill pill--yellow ${mode === 'pets' ? 'is-active' : ''}`}
-  onClick={() => resetFieldsForMode('pets')}
->
-  {F(ui, 'btnPets', 'Meds 4 Pets')}
-</button>
-
+          <button className={`pill pill--yellow ${mode === 'pets' ? 'is-active' : ''}`} onClick={() => resetFieldsForMode('pets')}>
+            {F(ui, 'btnPets', 'Meds 4 Pets')}
+          </button>
         </div>
       </div>
 
@@ -1185,16 +926,10 @@ const btn = (
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>{F(ui, 'phHome', 'Please select your Home Country')}</div>
               <select value={originCode} onChange={(e) => setOriginCode(e.target.value)} style={select}>
-                <option value="" disabled>
-                  —
-                </option>
+                <option value="" disabled>—</option>
                 {Object.entries(countriesByRegion).map(([region, list]) => (
                   <optgroup key={region} label={region}>
-                    {list.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
+                    {list.map((c) => (<option key={c} value={c}>{c}</option>))}
                   </optgroup>
                 ))}
               </select>
@@ -1202,50 +937,45 @@ const btn = (
           )}
 
           {/* Condition mode */}
-          
-{mode === 'condition' && (
-  <>
-    <div>
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>{F(ui, 'condSelect', 'Select or type a condition')}</div>
-      <select
-        onChange={(e) => setSelectedCondition(e.target.value)}
-        value={selectedCondition}
-        style={select}
-      >
-        <option value="" disabled>—</option>
-        {(conditionGroups ?? []).map((g) => (
-          <optgroup key={g.id} label={(groupLabels[g.id] || g.label)}>
-            {(g.items || []).map((key) => (
-              <option key={key} value={conditionMap[key] || key}>
-                {conditionMap[key] || key}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-    </div>
+          {mode === 'condition' && (
+            <>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{F(ui, 'condSelect', 'Select or type a condition')}</div>
+                <select onChange={(e) => setSelectedCondition(e.target.value)} value={selectedCondition} style={select}>
+                  <option value="" disabled>—</option>
+                  {(conditionGroups ?? []).map((g) => (
+                    <optgroup key={g.id} label={(groupLabels[g.id] || g.label)}>
+                      {(g.items || []).map((key) => (
+                        <option key={key} value={conditionMap[key] || key}>
+                          {conditionMap[key] || key}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
 
-    <div>
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>{F(ui, 'condContext', 'Add helpful context (optional)')}</div>
-      <textarea
-        placeholder={F(ui, 'condContextPH', 'Symptoms, duration, prior meds, past issues…')}
-        value={conditionDetails}
-        onChange={(e) => setConditionDetails(e.target.value)}
-        style={{ ...input, minHeight: 80 }}
-      />
-    </div>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{F(ui, 'condContext', 'Add helpful context (optional)')}</div>
+                <textarea
+                  placeholder={F(ui, 'condContextPH', 'Symptoms, duration, prior meds, past issues…')}
+                  value={conditionDetails}
+                  onChange={(e) => setConditionDetails(e.target.value)}
+                  style={{ ...input, minHeight: 80 }}
+                />
+              </div>
 
-    <div>
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>{F(ui, 'condAllergies', 'Allergies / Pathologies (optional)')}</div>
-      <textarea
-        placeholder={F(ui, 'condAllergiesPH', 'e.g., penicillin allergy, kidney disease…')}
-        value={userNotes}
-        onChange={(e) => setUserNotes(e.target.value)}
-        style={{ ...input, minHeight: 60 }}
-      />
-    </div>
-  </>
-)}
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{F(ui, 'condAllergies', 'Allergies / Pathologies (optional)')}</div>
+                <textarea
+                  placeholder={F(ui, 'condAllergiesPH', 'e.g., penicillin allergy, kidney disease…')}
+                  value={userNotes}
+                  onChange={(e) => setUserNotes(e.target.value)}
+                  style={{ ...input, minHeight: 60 }}
+                />
+              </div>
+            </>
+          )}
 
           {/* Drug + dose */}
           {mode !== 'condition' && mode !== 'pharmacy' && mode !== 'gp' && mode !== 'hospital' && mode !== 'doctor' && (
@@ -1333,7 +1063,7 @@ const btn = (
               (mode === 'doctor' && !((userAddress || useGeo) && doctorSpec))
             }
             className={`pill pill--blue${loading ? ' pill--disabled' : ''}`}
-  style={{ width: '100%', }}   /* keep full-width for form submit */
+            style={{ width: '100%' }}
           >
             {loading
               ? '…'
@@ -1355,15 +1085,39 @@ const btn = (
       {/* RESULTS */}
       {mode !== 'triage' && (
         <div style={{ marginTop: 12 }}>
+          {/* Leaflet content */}
           {(mode === 'leaflet' || mode === 'international' || mode === 'generic' || mode === 'pets') && leafletRaw && (
             <div className="leaflet-block">
               {renderLeafletPretty(extractLeafletText(leafletRaw), t)}
+            </div>
+          )}
 
-              {/* Equivalent list intro banner */}
+          {/* >>> Banner ONLY for international/generic/pets (NOT leaflet) <<< */}
+          {(mode === 'international' || mode === 'generic' || mode === 'pets') && leafletRaw && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: '10px 12px',
+                background: 'transparent',
+                border: '1px solid transparent',
+                borderRadius: 8,
+                fontSize: '1.50rem',
+              }}
+            >
               {(() => {
                 const bannerDrug = (selectedDrug || '').trim();
+
+                // Country choice depends on mode:
+                // - generic  → originCode (home country)
+                // - intl/pets → targetCode (fallback to origin)
+                const countryCode =
+                  mode === 'generic'
+                    ? (originCode || '')
+                    : (targetCode || originCode || '');
+
+                // Human label for the country, if present
                 const bannerCountry = (() => {
-                  const c = (targetCode || '').trim();
+                  const c = (countryCode || '').trim();
                   if (!c) return '';
                   try {
                     return new Intl.DisplayNames([lang], { type: 'region' }).of(c) || c;
@@ -1371,37 +1125,52 @@ const btn = (
                     return c;
                   }
                 })();
-                const equivIntroFallback =
-                  bannerCountry
-                    ? `Below is the list of equivalent medicines for ${bannerDrug || 'this medicine'} available in ${bannerCountry}.`
-                    : `Below is the list of equivalent medicines for ${bannerDrug || 'this medicine'}.`;
+
+                // Dynamic header + intro per mode
+                const header =
+                  mode === 'generic'
+                    ? F(ui, 'genHeader', 'Generics')
+                    : mode === 'pets'
+                    ? F(ui, 'petEquivHeader', 'Equivalent pet medicines')
+                    : F(ui, 'equivHeader', 'Equivalent medicines');
+
+                // Build default intro text with graceful country handling
+                const baseName = bannerDrug || F(ui, 'thisMedicine', 'this medicine');
+                let introDefault = '';
+
+                if (mode === 'generic') {
+                  introDefault = bannerCountry
+                    ? `Below is the list of generics for ${baseName} available in ${bannerCountry}.`
+                    : `Below is the list of generics for ${baseName}.`;
+                } else if (mode === 'pets') {
+                  introDefault = bannerCountry
+                    ? `Below is the list of equivalent pet medicines for ${baseName} available in ${bannerCountry}.`
+                    : `Below is the list of equivalent pet medicines for ${baseName}.`;
+                } else {
+                  introDefault = bannerCountry
+                    ? `Below is the list of equivalent medicines for ${baseName} available in ${bannerCountry}.`
+                    : `Below is the list of equivalent medicines for ${baseName}.`;
+                }
+
+                const introKey =
+                  mode === 'generic' ? 'genIntro' : mode === 'pets' ? 'petEquivIntro' : 'equivIntro';
 
                 return (
-                  <div
-                    style={{
-                      marginTop: 8,
-                      padding: '10px 12px',
-                      background: 'transparent',
-                      border: '1px solid transparent',
-                      borderRadius: 8,
-                      fontSize: '1.50rem',
-                    }}
-                  >
-                    <strong style={{ color: '#8d052eff' }}>
-                      {F(ui, 'equivHeader', 'Equivalent medicines')}
-                    </strong>
+                  <>
+                    <strong style={{ color: '#8d052eff' }}>{header}</strong>
                     <div style={{ fontSize: '0.85rem', marginTop: 4 }}>
-                      {F(ui, 'equivIntro', equivIntroFallback, {
-                        drugName: bannerDrug || F(ui, 'thisMedicine', 'this medicine'),
+                      {F(ui, introKey, introDefault, {
+                        drugName: baseName,
                         targetCountry: bannerCountry,
                       })}
                     </div>
-                  </div>
+                  </>
                 );
               })()}
             </div>
           )}
 
+          {/* Matches list */}
           {Array.isArray(matches) && matches.length > 0 && (
             <div style={{ marginTop: 12 }}>
               {matches.map((m: any, idx: number) => {
@@ -1432,7 +1201,7 @@ const btn = (
                             }
                           }}
                           disabled={isLeafletLoading}
-className={`pill pill--blue pill-sm${isLeafletLoading ? ' pill--disabled' : ''}`}
+                          className={`pill pill--blue pill-sm${isLeafletLoading ? ' pill--disabled' : ''}`}
                         >
                           {isLeafletLoading
                             ? F(ui, 'loadingLeaflet', 'Loading leaflet…')
@@ -1447,7 +1216,7 @@ className={`pill pill--blue pill-sm${isLeafletLoading ? ' pill--disabled' : ''}`
                       <div
                         style={{
                           background: '#f6f9ff',
-                          border: '1px solid #e5e7eb',   // ← fixed
+                          border: '1px solid #e5e7eb',
                           borderRadius: 10,
                           padding: '10px 12px',
                           marginTop: 10,
@@ -1464,13 +1233,10 @@ className={`pill pill--blue pill-sm${isLeafletLoading ? ' pill--disabled' : ''}`
             </div>
           )}
 
+          {/* Plain AI text (e.g., for condition mode) */}
           {!!plainText && (!Array.isArray(matches) || matches.length === 0) && (
-  <div
-    className="ai-plain"
-    dangerouslySetInnerHTML={{ __html: formattedHTML }}
-  />
-)}
-
+            <div className="ai-plain" dangerouslySetInnerHTML={{ __html: formattedHTML }} />
+          )}
         </div>
       )}
 
@@ -1521,7 +1287,7 @@ className={`pill pill--blue pill-sm${isLeafletLoading ? ' pill--disabled' : ''}`
       <div style={{ textAlign: 'center', margin: '20px 0', color: '#6b7280', fontSize: '0.85rem' }}>
         {hydrated && visits !== null && <div>{F(ui, 'visitsLabel', 'Visits')}: {visits.toLocaleString()}</div>}
         <div style={{ marginTop: 6 }}>
-          © {new Date().getFullYear()} <strong><span style={{ color: '#1E73BE' }}>medi</span><span style={{ color: '#008080' }}>céa</span>™</strong> by GES Consultancy Ltd. {F(t as any, 'footerAllRights', 'All rights reserved.')}
+          © {new Date().getFullYear()} <strong><span style={{ color: '#1E73BE' }}>medi</span><span style={{ color: '#008080' }}>céa</span>®</strong> by GES Consultancy Ltd. {F(t as any, 'footerAllRights', 'All rights reserved.')}
         </div>
         <div>
           <a href="/terms" style={{ color: '#0b74de' }}>
