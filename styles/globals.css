@@ -82,3 +82,38 @@ h1 { color: #0066cc; }
   .ai-result code { background: #132544; }
   .ai-result a { color: #6bb7ff; }
 }
+
+/* base pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 1.05rem;
+  text-decoration: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+}
+
+/* hover / subtle movement */
+.pill:hover {
+  transform: translateY(-1px);
+}
+
+/* blue pill (My Records) */
+.pill--blue {
+  background: linear-gradient(180deg,#bfe6ff 0%,#8fd2ff 40%,#1b7fe5 100%);
+  border: 1px solid #1b7fe5;
+}
+/* green, red, yellow variants - replicate same pattern */
+.pill--green { background: linear-gradient(#c9f7b2 0%, #93ea7c 40%, #0db12b 100%); border:1px solid #0d8f1c; color:white; }
+.pill--red   { background: linear-gradient(#ffc1b8 0%, #ff8f85 40%, #ff4c40 100%); border:1px solid #c9423a; color:white; }
+.pill--yellow{ color:#5a4a00; background: linear-gradient(#fff2a6 0%, #ffe067 40%, #ffd11b 100%); border:1px solid #b89b00; color:#5a4a00; }
+
+/* small variant used in navs */
+.pill-sm { padding: 6px 12px; font-size: 0.95rem; }
+.pill--disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform:none; }
